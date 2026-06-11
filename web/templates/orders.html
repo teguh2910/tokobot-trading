@@ -13,13 +13,13 @@
                     <tr>
                         <th>Symbol</th>
                         <th>Side</th>
-                        <th>Entry Price</th>
+                        <th>Entry</th>
+                        <th>Current</th>
                         <th>Qty</th>
-                        <th>Stop Loss</th>
-                        <th>Take Profit</th>
+                        <th>SL</th>
+                        <th>TP</th>
                         <th>P&L</th>
                         <th>Strategy</th>
-                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -41,13 +41,13 @@ async function loadOrders() {
         tbody.innerHTML += `<tr>
             <td>${o.symbol}</td>
             <td><span class="badge bg-${o.side === 'BUY' ? 'success' : 'danger'}">${o.side}</span></td>
-            <td>${o.price.toFixed(4)}</td>
+            <td>${o.price.toFixed(0)}</td>
+            <td>${(o.current_price || 0).toFixed(0)}</td>
             <td>${o.qty.toFixed(4)}</td>
-            <td>${o.stop_loss.toFixed(4)}</td>
-            <td>${o.take_profit.toFixed(4)}</td>
+            <td>${o.stop_loss.toFixed(0)}</td>
+            <td>${o.take_profit.toFixed(0)}</td>
             <td class="${pnlClass}">${o.pnl.toFixed(2)}</td>
             <td>${o.strategy}</td>
-            <td><button class="btn btn-sm btn-outline-danger" onclick="alert('Cancel via strategy page')">Close</button></td>
         </tr>`;
     });
 }

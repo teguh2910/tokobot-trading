@@ -49,7 +49,8 @@ async function loadDashboard() {
             posTbody.innerHTML += `<tr>
                 <td>${p.symbol}</td>
                 <td><span class="badge bg-${p.side === 'BUY' ? 'success' : 'danger'}">${p.side}</span></td>
-                <td>${p.entry_price.toFixed(4)}</td>
+                <td>${p.entry_price.toFixed(0)}</td>
+                <td>${(p.current_price || 0).toFixed(0)}</td>
                 <td>${p.quantity.toFixed(4)}</td>
                 <td class="${pnlClass}">${p.pnl.toFixed(2)} (${p.pnl_pct.toFixed(2)}%)</td>
             </tr>`;
