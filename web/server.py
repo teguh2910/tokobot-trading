@@ -192,31 +192,36 @@ async def api_active_orders():
         from client.rest import TokocryptoClient
         client = TokocryptoClient()
         balances = client.get_account_info()[0]
-        prices = client.get_ticker()
-    except Exception:
+        prices_24h = client.get_ticker_24hr()
+        prices = {p["symbol"]: float(p["lastPrice"]) for p in prices_24h}
+        
+        result = []
+        for b in balances:
+            if b.asset in ("IDR", "USDT", "TKO") or b.free <= 0:
+                continue
+            sym = f"{b.asset}_IDR"
+            price_key = f"{b.asset}IDR"
+            cp = prices.get(price_key, 0)
+            if cp == 0:
+                continue
+            result.append({
+                "symbol": sym,
+                "side": "BUY",
+                "price": 0,
+                "qty": round(b.free, 6),
+                "current_price": cp,
+                "stop_loss": 0,
+                "take_profit": 0,
+                "pnl": 0,
+                "open_time": 0,
+                "strategy": "exchange",
+            })
+        return {"orders": result}
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("tokobot.dashboard")
+        logger.error(f"Failed to fetch active orders: {e}")
         return {"orders": []}
-
-    result = []
-    for b in balances:
-        if b.asset in ("IDR", "USDT", "TKO") or b.free <= 0:
-            continue
-        sym = f"{b.asset}_IDR"
-        cp = prices.get(b.asset, 0)
-        if cp == 0:
-            continue
-        result.append({
-            "symbol": sym,
-            "side": "BUY",
-            "price": 0,
-            "qty": round(b.free, 6),
-            "current_price": cp,
-            "stop_loss": 0,
-            "take_profit": 0,
-            "pnl": 0,
-            "open_time": 0,
-            "strategy": "exchange",
-        })
-    return {"orders": result}
 
 
 @app.get("/api/performance")
