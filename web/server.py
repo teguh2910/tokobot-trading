@@ -177,10 +177,50 @@ async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit
     if sync:
         try:
             from db import sync_trades_db
-            sync_trades_db(force=True)
+            sync_trades_db()
         except Exception as e:
             logger.warning(f"sync on trades fetch failed: {e}")
-    trades = get_trade_history(limit=limit, symbol=symbol, strategy=strategy, side=side)
+
+    trades = get_trade_history(limit=1000, symbol=symbol, strategy=strategy, side=side)
+    if not trades:
+        return {"trades": []}
+
+    if not side and not symbol:
+        agg = {}
+        for t in trades:
+            sym = t["symbol"]
+            s = t["side"]
+            key = (sym, s)
+            if key not in agg:
+                agg[key] = {
+                    "trade_id": f"{sym}_{s}",
+                    "order_id": "",
+                    "symbol": sym,
+                    "side": s,
+                    "price": t["price"],
+                    "qty": t["qty"],
+                    "quote_qty": t["quote_qty"],
+                    "commission": t["commission"],
+                    "commission_asset": t.get("commission_asset", ""),
+                    "trade_time": t["trade_time"],
+                    "pnl": t["pnl"],
+                }
+            else:
+                a = agg[key]
+                total_q = a["qty"] + t["qty"]
+                a["price"] = (a["price"] * a["qty"] + t["price"] * t["qty"]) / total_q
+                a["qty"] = total_q
+                a["quote_qty"] += t["quote_qty"]
+                a["commission"] += t["commission"]
+                a["trade_time"] = max(a["trade_time"], t["trade_time"])
+                a["pnl"] += t["pnl"]
+
+        result = list(agg.values())
+        result.sort(key=lambda x: x["trade_time"], reverse=True)
+        for t in result:
+            t["trade_time_str"] = datetime.fromtimestamp(t["trade_time"] / 1000).strftime("%Y-%m-%d %H:%M:%S")
+        return {"trades": result[:limit]}
+
     for t in trades:
         t["trade_time_str"] = datetime.fromtimestamp(t["trade_time"] / 1000).strftime("%Y-%m-%d %H:%M:%S")
     return {"trades": trades}
