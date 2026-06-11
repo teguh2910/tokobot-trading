@@ -56,32 +56,31 @@ class TradingEngine:
                     continue
                 price = float(t.get("lastPrice", 0))
                 change = float(t.get("priceChangePercent", 0))
+                quote_vol = float(t.get("quoteVolume", 0))
                 if price <= 0:
                     continue
-                coins.append({"symbol": sym, "change_pct": change})
+                coins.append({"symbol": sym, "change_pct": change, "volume": quote_vol})
             coins.sort(key=lambda x: x["change_pct"], reverse=True)
             top10 = coins[:10]
 
-            import numpy as np
             selected = []
-            interval = "1m"
             for c in top10:
                 raw = c["symbol"]
                 toko_sym = raw[:-3] + "_" + raw[-3:]
                 try:
-                    klines = self.client.get_klines(toko_sym, interval=interval, limit=100)
-                    if len(klines) < 14:
+                    klines = self.client.get_klines(toko_sym, interval="1m", limit=20)
+                    if len(klines) < 3:
                         continue
-                    recent_vol = float(np.mean([k.volume for k in klines[-3:]]))
-                    avg_vol = float(np.mean([k.volume for k in klines]))
-                    vol_surge = recent_vol / avg_vol if avg_vol > 0 else 0
-                    logger.info(f"[Screen] {raw} 24h={c['change_pct']:+.2f}% vol_surge={vol_surge:.1f}x")
-                    if vol_surge > 1.2:
+                    new_vol = max(k.volume for k in klines[-3:])
+                    if new_vol > 0:
+                        selected.append(toko_sym)
+                    else:
                         selected.append(toko_sym)
                 except Exception:
+                    selected.append(toko_sym)
                     continue
 
-            logger.info(f"[Screen] Selected {len(selected)} symbols: {[s.replace('_IDR','IDR') for s in selected]}")
+            logger.info(f"[Screen] Top 10: {[s.replace('_IDR','IDR') for s in selected]}")
             return selected
         except Exception as e:
             logger.warning(f"Auto-screen failed: {e}")
