@@ -168,25 +168,12 @@ class SignalManager:
                     remove_position(position.symbol, position.side)
                     return
 
-                current_price = float(self.client.get_ticker(symbol=position.symbol).get(position.symbol.replace("_", ""), position.current_price))
-                min_notional = self.client.get_min_notional()
-                qty = self.client.round_quantity(position.symbol, actual_qty)
-
-                if qty * current_price < min_notional:
-                    step = float(self.client.get_lot_size(position.symbol).get("stepSize", 0))
-                    if step > 0:
-                        qty = self.client.round_quantity(position.symbol, actual_qty + step)
-                    if qty * current_price < min_notional:
-                        logger.warning(f"Cannot close {position.symbol}: value {qty * current_price:.0f} < min {min_notional:.0f}")
-                        remove_position(position.symbol, position.side)
-                        return
-
                 side = 1 if position.side == "BUY" else 0
                 order = self.client.new_order(
                     symbol=position.symbol,
                     side=side,
                     order_type=2,
-                    quantity=str(qty),
+                    quantity=f"{actual_qty:.8f}",
                 )
 
                 close_price = order.price
