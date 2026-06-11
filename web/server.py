@@ -99,6 +99,11 @@ async def portfolio_page(request: Request):
     return templates.TemplateResponse(request, "portfolio.html")
 
 
+@app.get("/trending", response_class=HTMLResponse)
+async def trending_page(request: Request):
+    return templates.TemplateResponse(request, "trending.html")
+
+
 # ── API Routes ──
 
 @app.get("/api/dashboard")
@@ -314,6 +319,43 @@ async def api_portfolio():
         "usdt_idr": round(usdt_idr, 2) if usdt_idr else 0,
         "equity": [{"timestamp": e["timestamp"], "equity": e["equity"]} for e in equity],
     }
+
+
+@app.get("/api/trending")
+async def api_trending():
+    try:
+        from client.rest import TokocryptoClient
+        client = TokocryptoClient()
+        tickers = client.get_ticker_24hr()
+    except Exception as e:
+        logger.warning(f"Trending fetch failed: {e}")
+        return {"trending": []}
+
+    coins = []
+    for t in tickers:
+        sym = t.get("symbol", "")
+        if not sym.endswith("IDR"):
+            continue
+        price = float(t.get("lastPrice", 0))
+        change_pct = float(t.get("priceChangePercent", 0))
+        high = float(t.get("highPrice", 0))
+        low = float(t.get("lowPrice", 0))
+        volume = float(t.get("volume", 0))
+        quote_vol = float(t.get("quoteVolume", 0))
+        if price <= 0:
+            continue
+        coins.append({
+            "symbol": sym,
+            "price": round(price, 2),
+            "change_pct": round(change_pct, 2),
+            "high": round(high, 2),
+            "low": round(low, 2),
+            "volume": round(volume, 2),
+            "quote_volume": round(quote_vol, 2),
+        })
+
+    coins.sort(key=lambda x: x["change_pct"], reverse=True)
+    return {"trending": coins}
 
 
 @app.websocket("/ws")
