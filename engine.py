@@ -70,16 +70,17 @@ class TradingEngine:
 
             import numpy as np
             bullish = []
+            interval = "5m"
             for c in top10:
                 raw = c["symbol"]
                 toko_sym = raw[:-3] + "_" + raw[-3:]
                 try:
-                    klines = self.client.get_klines(toko_sym, interval="1h", limit=50)
-                    if len(klines) < 21:
+                    klines = self.client.get_klines(toko_sym, interval=interval, limit=50)
+                    if len(klines) < 10:
                         continue
                     closes = [k.close for k in klines]
-                    fast = float(np.mean(closes[-9:]))
-                    slow = float(np.mean(closes[-21:]))
+                    fast = float(np.mean(closes[-5:]))
+                    slow = float(np.mean(closes[-10:]))
                     if fast > slow:
                         bullish.append(toko_sym)
                 except Exception:

@@ -399,39 +399,47 @@ async def api_screen(limit: int = 10, sort: str = "gainers"):
         return 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
 
     results = []
+    interval = "5m"
     for c in coins:
         try:
-            klines = client.get_klines(c["toko_symbol"], interval="1h", limit=100)
-            if len(klines) < 21:
+            klines = client.get_klines(c["toko_symbol"], interval=interval, limit=100)
+            if len(klines) < 20:
                 continue
             closes = [k.close for k in klines]
             rsi = round(compute_rsi(closes), 1)
-            fast_ma = round(float(np.mean(closes[-9:])), 2)
-            slow_ma = round(float(np.mean(closes[-21:])), 2)
+            fast_ma = round(float(np.mean(closes[-5:])), 2)
+            slow_ma = round(float(np.mean(closes[-10:])), 2)
             ma_bullish = fast_ma > slow_ma
+            current_price = closes[-1]
+            price_above_ma5 = current_price > fast_ma
+            recent_vol = float(np.mean([k.volume for k in klines[-5:]]))
             avg_vol = float(np.mean([k.volume for k in klines]))
-            vol_surge = round(c["volume"] / avg_vol, 1) if avg_vol > 0 else 0
+            vol_surge = round(recent_vol / avg_vol, 1) if avg_vol > 0 else 0
+            momentum = round((current_price / closes[-10] - 1) * 100, 2) if len(closes) >= 10 else 0
             signals = []
-            if rsi < 35:
-                signals.append("RSI oversold")
-            elif rsi > 65:
-                signals.append("RSI overbought")
-            if ma_bullish:
-                signals.append("MA bullish")
-            else:
-                signals.append("MA bearish")
-            if vol_surge > 2:
+            if rsi < 30:
+                signals.append("Oversold")
+            elif rsi > 70:
+                signals.append("Overbought")
+            if not ma_bullish:
+                signals.append("Bearish")
+            if vol_surge > 1.5:
                 signals.append("Vol surge")
+            if momentum > 1:
+                signals.append("Momentum up")
             results.append({
                 "symbol": c["symbol"],
-                "price": round(c["price"], 2),
+                "price": round(current_price, 2),
                 "change_pct": round(c["change_pct"], 2),
                 "rsi": rsi,
                 "ma_fast": fast_ma,
                 "ma_slow": slow_ma,
                 "ma_bullish": ma_bullish,
+                "price_above_ma5": price_above_ma5,
                 "volume": round(c["volume"], 2),
                 "vol_surge": vol_surge,
+                "momentum": momentum,
+                "interval": interval,
                 "signals": signals,
             })
         except Exception as e:
