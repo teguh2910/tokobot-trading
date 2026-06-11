@@ -30,13 +30,18 @@
     </div>
 </div>
 
-<h5 class="mb-3"><i class="bi bi-search"></i> Top 10 Screening</h5>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h5 class="mb-0 me-2"><i class="bi bi-search"></i> Top 10 Screening</h5>
+    <button class="btn btn-sm btn-success" onclick="tradeAllBullish()">Trade All Bullish</button>
+    <span class="text-muted small" id="selected-count">Selected: 0</span>
+</div>
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover table-sm" id="screen-table">
                 <thead>
                     <tr>
+                        <th style="width:40px">Trade</th>
                         <th>Symbol</th>
                         <th>Price</th>
                         <th>24h Chg</th>
@@ -49,7 +54,7 @@
                     </tr>
                 </thead>
                 <tbody id="screen-body">
-                    <tr><td colspan="9" class="text-center text-muted">Loading...</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -62,6 +67,7 @@
 const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
 let allCoins = [];
 let showGainersMode = true;
+let selectedSymbols = new Set();
 
 async function loadTrending() {
     try {
@@ -105,7 +111,7 @@ async function loadScreen() {
         const items = data.screen || [];
         const tbody = document.getElementById('screen-body');
         if (!items.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No data</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No data</td></tr>';
             return;
         }
         tbody.innerHTML = items.map(c => {
@@ -115,12 +121,19 @@ async function loadScreen() {
             const trendCls = c.ma_bullish ? 'text-success' : 'text-danger';
             const trendIcon = c.ma_bullish ? '▲' : '▼';
             const volCls = c.vol_surge > 2 ? 'text-warning' : '';
+            const canTrade = c.ma_bullish;
+            const isSelected = selectedSymbols.has(c.symbol);
             const badges = c.signals.map(s => {
                 const cls = s.includes('bullish') || s.includes('oversold') ? 'bg-success' :
                             s.includes('bearish') || s.includes('overbought') ? 'bg-danger' : 'bg-warning';
                 return `<span class="badge ${cls} me-1">${s}</span>`;
             }).join('');
-            return `<tr>
+            return `<tr class="${isSelected ? 'table-active' : ''}">
+                <td>
+                    <input type="checkbox" class="form-check-input trade-check" data-symbol="${c.symbol}"
+                        ${!canTrade ? 'disabled' : ''} ${isSelected ? 'checked' : ''}
+                        onchange="toggleSymbol('${c.symbol}', this.checked)">
+                </td>
                 <td><strong>${c.symbol}</strong></td>
                 <td>${nf(c.price)}</td>
                 <td class="${chgCls} fw-bold">${chgArrow} ${nf(c.change_pct)}%</td>
@@ -132,10 +145,59 @@ async function loadScreen() {
                 <td>${badges}</td>
             </tr>`;
         }).join('');
+        updateSelectedCount();
     } catch (e) {
         document.getElementById('screen-body').innerHTML =
-            '<tr><td colspan="9" class="text-danger text-center">Failed to load</td></tr>';
+            '<tr><td colspan="10" class="text-danger text-center">Failed to load</td></tr>';
     }
+}
+
+async function toggleSymbol(symbol, checked) {
+    if (checked) {
+        selectedSymbols.add(symbol);
+    } else {
+        selectedSymbols.delete(symbol);
+    }
+    await saveSelected();
+    updateSelectedCount();
+    highlightRows();
+}
+
+async function tradeAllBullish() {
+    const sort = showGainersMode ? 'gainers' : 'losers';
+    const res = await fetch('/api/screen?limit=10&sort=' + sort);
+    const data = await res.json();
+    (data.screen || []).filter(c => c.ma_bullish).forEach(c => selectedSymbols.add(c.symbol));
+    await saveSelected();
+    loadScreen();
+}
+
+async function saveSelected() {
+    await fetch('/api/screen/selected', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({symbols: [...selectedSymbols]})
+    });
+}
+
+async function loadSelected() {
+    try {
+        const res = await fetch('/api/screen/selected');
+        const data = await res.json();
+        (data.symbols || []).forEach(s => selectedSymbols.add(s));
+    } catch (e) {}
+}
+
+function updateSelectedCount() {
+    document.getElementById('selected-count').textContent = 'Selected: ' + selectedSymbols.size;
+}
+
+function highlightRows() {
+    document.querySelectorAll('.trade-check').forEach(cb => {
+        const row = cb.closest('tr');
+        if (cb.checked) row.classList.add('table-active');
+        else row.classList.remove('table-active');
+    });
 }
 
 function showGainers() {
@@ -154,8 +216,10 @@ function showLosers() {
     loadScreen();
 }
 
-loadTrending();
-loadScreen();
+loadSelected().then(() => {
+    loadTrending();
+    loadScreen();
+});
 setInterval(() => { loadTrending(); loadScreen(); }, 30000);
 </script>
 {% endblock %}

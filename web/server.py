@@ -441,6 +441,22 @@ async def api_screen(limit: int = 10, sort: str = "gainers"):
     return {"screen": results}
 
 
+SELECTED_SYMBOLS_FILE = Path("/tmp/tokobot_selected_symbols.json")
+
+@app.get("/api/screen/selected")
+async def get_selected_symbols():
+    if SELECTED_SYMBOLS_FILE.exists():
+        data = json.loads(SELECTED_SYMBOLS_FILE.read_text())
+        return {"symbols": data.get("symbols", [])}
+    return {"symbols": []}
+
+@app.post("/api/screen/selected")
+async def set_selected_symbols(data: dict):
+    symbols = data.get("symbols", [])
+    SELECTED_SYMBOLS_FILE.write_text(json.dumps({"symbols": symbols}))
+    return {"ok": True, "symbols": symbols}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
