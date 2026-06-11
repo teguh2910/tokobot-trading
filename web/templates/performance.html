@@ -1,84 +1,84 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-graph-up"></i> Performance & Reporting</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-graph-up"></i> Performance & Reporting</h4>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+<div class="row g-2 g-lg-3 mb-3 mb-lg-4">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Total Trades</h6>
             <h3 id="perf-trades">0</h3>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Win Rate</h6>
             <h3 id="perf-winrate">0%</h3>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Profit Factor</h6>
             <h3 id="perf-profitfactor">0</h3>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Sharpe Ratio</h6>
             <h3 id="perf-sharpe">0</h3>
         </div></div>
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+<div class="row g-2 g-lg-3 mb-3 mb-lg-4">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Gross Profit</h6>
             <h3 class="text-success" id="perf-gross-profit">0</h3>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Gross Loss</h6>
             <h3 class="text-danger" id="perf-gross-loss">0</h3>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Avg Win</h6>
             <h3 class="text-success" id="perf-avg-win">0</h3>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Avg Loss</h6>
             <h3 class="text-danger" id="perf-avg-loss">0</h3>
         </div></div>
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+<div class="row g-2 g-lg-3 mb-3 mb-lg-4">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Max Drawdown</h6>
             <h3 class="text-warning" id="perf-drawdown">0%</h3>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Total P&L</h6>
             <h3 id="perf-total-pnl">0</h3>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Best Trade</h6>
             <h3 class="text-success" id="perf-best">0</h3>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card"><div class="card-body text-center">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
             <h6 class="text-muted">Worst Trade</h6>
             <h3 class="text-danger" id="perf-worst">0</h3>
         </div></div>
@@ -86,10 +86,10 @@
 </div>
 
 <div class="row g-3">
-    <div class="col-md-12">
+    <div class="col-12">
         <div class="card">
             <div class="card-header"><i class="bi bi-graph-up"></i> Equity Curve</div>
-            <div class="card-body" style="height:260px; position:relative">
+            <div class="card-body" style="height:200px; position:relative">
                 <canvas id="equityChart" style="position:absolute;left:0;top:0;width:100%;height:100%"></canvas>
             </div>
         </div>

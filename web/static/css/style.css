@@ -41,6 +41,34 @@ body {
 
 .main-content {
     min-height: 100vh;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+@media (max-width: 991.98px) {
+    .main-content {
+        padding-top: 0.5rem !important;
+    }
+    .card-body {
+        padding: 0.75rem;
+    }
+    .card-header {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    h2 { font-size: 1.25rem; }
+    h3 { font-size: 1.1rem; }
+    h4 { font-size: 1.1rem; }
+    h6.card-subtitle { font-size: 0.7rem; }
+    .display-5 { font-size: 1.8rem; }
+    .table td, .table th {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.4rem;
+        white-space: nowrap;
+    }
+    .btn-sm { font-size: 0.75rem; }
+    .form-select-sm { font-size: 0.75rem; }
+    .badge { font-size: 0.7rem; }
 }
 
 .card {

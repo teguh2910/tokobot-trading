@@ -6,39 +6,39 @@
         <span class="text-muted small" id="last-update"></span>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
+    <div class="row g-2 g-lg-3 mb-3 mb-lg-4">
+        <div class="col-6 col-md-4">
             <div class="card bg-dark border-secondary h-100">
-                <div class="card-body text-center">
-                    <div class="text-muted small">Total Portfolio Value</div>
-                    <div class="display-5 fw-bold" id="total-value">—</div>
+                <div class="card-body text-center py-2 py-lg-3">
+                    <div class="text-muted small">Total Value</div>
+                    <div class="fw-bold" id="total-value" style="font-size:clamp(1rem,4vw,2rem)">—</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-6 col-md-4">
             <div class="card bg-dark border-secondary h-100">
-                <div class="card-body text-center">
+                <div class="card-body text-center py-2 py-lg-3">
                     <div class="text-muted small">BTC/IDR</div>
-                    <div class="fs-3 fw-bold" id="btc-price">—</div>
+                    <div class="fw-bold" id="btc-price" style="font-size:clamp(0.9rem,3vw,1.5rem)">—</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-6 col-md-4">
             <div class="card bg-dark border-secondary h-100">
-                <div class="card-body text-center">
+                <div class="card-body text-center py-2 py-lg-3">
                     <div class="text-muted small">USDT/IDR</div>
-                    <div class="fs-3 fw-bold" id="usdt-price">—</div>
+                    <div class="fw-bold" id="usdt-price" style="font-size:clamp(0.9rem,3vw,1.5rem)">—</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row g-3">
+    <div class="row g-2 g-lg-3">
         <div class="col-md-5">
             <div class="card bg-dark border-secondary h-100">
                 <div class="card-body">
                     <h6 class="card-title"><i class="bi bi-pie-chart"></i> Allocation</h6>
-                    <div style="position:relative;height:260px">
+                    <div style="position:relative;height:200px">
                         <canvas id="allocationChart"></canvas>
                     </div>
                 </div>
@@ -48,14 +48,14 @@
             <div class="card bg-dark border-secondary h-100">
                 <div class="card-body">
                     <h6 class="card-title"><i class="bi bi-table"></i> Asset Breakdown</h6>
-                    <div class="table-responsive" style="max-height:400px;overflow-y:auto">
+                    <div class="table-responsive" style="max-height:300px;overflow-y:auto">
                         <table class="table table-sm table-dark table-hover" id="portfolio-table">
                             <thead>
                                 <tr>
                                     <th>Asset</th>
                                     <th class="text-end">Balance</th>
-                                    <th class="text-end">Price (IDR)</th>
-                                    <th class="text-end">Value (IDR)</th>
+                                    <th class="text-end">Price</th>
+                                    <th class="text-end">Value</th>
                                     <th class="text-end">%</th>
                                 </tr>
                             </thead>
@@ -69,12 +69,12 @@
         </div>
     </div>
 
-    <div class="row g-3 mt-2">
+    <div class="row g-2 g-lg-3 mt-2">
         <div class="col-12">
             <div class="card bg-dark border-secondary">
                 <div class="card-body">
                     <h6 class="card-title"><i class="bi bi-graph-up"></i> Equity History</h6>
-                    <div style="position:relative;height:250px">
+                    <div style="position:relative;height:200px">
                         <canvas id="equityChart"></canvas>
                     </div>
                 </div>
