@@ -402,6 +402,17 @@ class TradingEngine:
                     self._flush_ws_subscriptions()
 
                     positions = get_active_positions()
+                    for pos in positions:
+                        price = self.symbol_prices.get(pos.symbol, 0)
+                        if price <= 0:
+                            try:
+                                tickers = self.client.get_ticker(symbol=pos.symbol)
+                                price = tickers.get(pos.symbol.replace("_", ""), 0) or 0
+                            except Exception:
+                                pass
+                        if price > 0:
+                            self._check_positions(pos.symbol, price)
+
                     pos_syms = {p.symbol for p in positions}
                     for sym in list(self.strategies.keys()):
                         if sym not in active and sym not in pos_syms:
