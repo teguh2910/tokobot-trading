@@ -1,4 +1,5 @@
 let balanceChart, equityChart;
+const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
 
 async function loadCharts() {
     try {
@@ -40,8 +41,8 @@ async function loadCharts() {
                         tooltip: {
                             callbacks: {
                                 label: ctx => {
-                                    const pct = (ctx.parsed / pf.total_idr * 100).toFixed(2);
-                                    return `${ctx.label}: Rp ${ctx.parsed.toLocaleString('id-ID', {minimumFractionDigits:2})} (${pct}%)`;
+                                    const pct = nf(ctx.parsed / pf.total_idr * 100);
+                                    return `${ctx.label}: Rp ${nf(ctx.parsed)} (${pct}%)`;
                                 }
                             }
                         }
@@ -76,7 +77,7 @@ async function loadCharts() {
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { ticks: { color: '#94a3b8', maxTicksLimit: 10 }, grid: { color: '#1e293b' } },
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+                        y: { ticks: { color: '#94a3b8', callback: v => nf(v) }, grid: { color: '#1e293b' } }
                     }
                 }
             });

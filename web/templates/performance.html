@@ -106,20 +106,20 @@ async function loadPerformance() {
     const data = await res.json();
     const m = data.metrics;
 
-    const fmt = (v, d=2) => Number(v).toFixed(d);
+    const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
     document.getElementById('perf-trades').textContent = m.total_trades;
-    document.getElementById('perf-winrate').textContent = m.win_rate + '%';
-    document.getElementById('perf-profitfactor').textContent = m.total_trades === 0 ? '—' : fmt(m.profit_factor);
-    document.getElementById('perf-sharpe').textContent = m.total_trades === 0 ? '—' : fmt(m.sharpe_ratio);
-    document.getElementById('perf-gross-profit').textContent = m.total_trades === 0 ? '—' : fmt(m.gross_profit);
-    document.getElementById('perf-gross-loss').textContent = m.total_trades === 0 ? '—' : fmt(Math.abs(m.gross_loss));
-    document.getElementById('perf-avg-win').textContent = m.wins === 0 ? '—' : fmt(m.avg_win);
-    document.getElementById('perf-avg-loss').textContent = m.losses === 0 ? '—' : fmt(m.avg_loss);
-    document.getElementById('perf-drawdown').textContent = fmt(m.max_drawdown) + '%';
-    document.getElementById('perf-total-pnl').textContent = fmt(m.total_pnl);
+    document.getElementById('perf-winrate').textContent = nf(m.win_rate) + '%';
+    document.getElementById('perf-profitfactor').textContent = m.total_trades === 0 ? '—' : nf(m.profit_factor);
+    document.getElementById('perf-sharpe').textContent = m.total_trades === 0 ? '—' : nf(m.sharpe_ratio);
+    document.getElementById('perf-gross-profit').textContent = m.total_trades === 0 ? '—' : nf(m.gross_profit);
+    document.getElementById('perf-gross-loss').textContent = m.total_trades === 0 ? '—' : nf(Math.abs(m.gross_loss));
+    document.getElementById('perf-avg-win').textContent = m.wins === 0 ? '—' : nf(m.avg_win);
+    document.getElementById('perf-avg-loss').textContent = m.losses === 0 ? '—' : nf(m.avg_loss);
+    document.getElementById('perf-drawdown').textContent = nf(m.max_drawdown) + '%';
+    document.getElementById('perf-total-pnl').textContent = nf(m.total_pnl);
     document.getElementById('perf-total-pnl').className = m.total_pnl >= 0 ? 'text-success' : 'text-danger';
-    document.getElementById('perf-best').textContent = m.total_trades === 0 ? '—' : fmt(m.best_trade);
-    document.getElementById('perf-worst').textContent = m.total_trades === 0 ? '—' : fmt(m.worst_trade);
+    document.getElementById('perf-best').textContent = m.total_trades === 0 ? '—' : nf(m.best_trade);
+    document.getElementById('perf-worst').textContent = m.total_trades === 0 ? '—' : nf(m.worst_trade);
 
     const canvas = document.getElementById('equityChart');
     const parent = canvas.parentElement;

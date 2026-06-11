@@ -31,6 +31,7 @@
 
 {% block scripts %}
 <script>
+const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
 async function loadOrders() {
     const res = await fetch('/api/orders/active');
     const data = await res.json();
@@ -41,12 +42,12 @@ async function loadOrders() {
         tbody.innerHTML += `<tr>
             <td>${o.symbol}</td>
             <td><span class="badge bg-${o.side === 'BUY' ? 'success' : 'danger'}">${o.side}</span></td>
-            <td>${o.price.toFixed(0)}</td>
-            <td>${(o.current_price || 0).toFixed(0)}</td>
-            <td>${o.qty.toFixed(4)}</td>
-            <td>${o.stop_loss.toFixed(0)}</td>
-            <td>${o.take_profit.toFixed(0)}</td>
-            <td class="${pnlClass}">${o.pnl.toFixed(2)}</td>
+            <td>${nf(o.price)}</td>
+            <td>${nf(o.current_price || 0)}</td>
+            <td>${nf(o.qty, 4)}</td>
+            <td>${nf(o.stop_loss)}</td>
+            <td>${nf(o.take_profit)}</td>
+            <td class="${pnlClass}">${nf(o.pnl)}</td>
             <td>${o.strategy}</td>
         </tr>`;
     });

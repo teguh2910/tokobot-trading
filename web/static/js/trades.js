@@ -1,3 +1,5 @@
+const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
+
 async function loadTrades() {
     const symbol = document.getElementById('filter-symbol').value;
     const strategy = document.getElementById('filter-strategy').value;
@@ -23,10 +25,10 @@ async function loadTrades() {
                 <td class="text-muted small">${t.trade_time_str || ''}</td>
                 <td><strong>${t.symbol}</strong></td>
                 <td><span class="badge bg-${sideClass}">${t.side}</span></td>
-                <td>${parseFloat(t.price).toFixed(4)}</td>
-                <td>${parseFloat(t.qty).toFixed(4)}</td>
-                <td>${parseFloat(t.quote_qty).toFixed(2)}</td>
-                <td class="${pnlClass}"><i class="bi ${pnlIcon}"></i> ${parseFloat(t.pnl).toFixed(2)}</td>
+                <td>${nf(t.price, 4)}</td>
+                <td>${nf(t.qty, 4)}</td>
+                <td>${nf(t.quote_qty)}</td>
+                <td class="${pnlClass}"><i class="bi ${pnlIcon}"></i> ${nf(t.pnl)}</td>
                 <td><span class="badge bg-secondary">${t.strategy || '-'}</span></td>
             </tr>`;
         });

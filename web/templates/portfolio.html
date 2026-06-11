@@ -94,29 +94,29 @@ const COLORS = [
 
 async function loadPortfolio() {
     try {
+        const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
         const resp = await fetch('/api/portfolio');
         const data = await resp.json();
         const pf = data.portfolio;
         const total = data.total_idr;
 
         document.getElementById('total-value').textContent =
-            total > 0 ? 'Rp ' + total.toLocaleString('id-ID', {minimumFractionDigits:2}) : 'Rp 0';
+            total > 0 ? 'Rp ' + nf(total) : 'Rp 0';
         document.getElementById('btc-price').textContent =
-            data.btc_idr > 0 ? 'Rp ' + Number(data.btc_idr).toLocaleString('id-ID') : '—';
+            data.btc_idr > 0 ? 'Rp ' + nf(data.btc_idr) : '—';
         document.getElementById('usdt-price').textContent =
-            data.usdt_idr > 0 ? 'Rp ' + Number(data.usdt_idr).toLocaleString('id-ID') : '—';
+            data.usdt_idr > 0 ? 'Rp ' + nf(data.usdt_idr) : '—';
         document.getElementById('last-update').textContent =
             'Updated: ' + new Date().toLocaleTimeString('id-ID');
-
         const tbody = document.getElementById('portfolio-body');
         tbody.innerHTML = pf.map((item, i) => {
             const color = COLORS[i % COLORS.length];
             return `<tr>
                 <td><span class="badge" style="background:${color}">${item.asset}</span></td>
-                <td class="text-end text-monospace">${item.total}</td>
-                <td class="text-end text-monospace">${item.price_idr > 0 ? 'Rp ' + Number(item.price_idr).toLocaleString('id-ID', {minimumFractionDigits:2}) : '—'}</td>
-                <td class="text-end text-monospace">Rp ${Number(item.value_idr).toLocaleString('id-ID', {minimumFractionDigits:2})}</td>
-                <td class="text-end text-monospace">${item.pct}%</td>
+                <td class="text-end text-monospace">${nf(item.total, 8)}</td>
+                <td class="text-end text-monospace">${item.price_idr > 0 ? 'Rp ' + nf(item.price_idr) : '—'}</td>
+                <td class="text-end text-monospace">Rp ${nf(item.value_idr)}</td>
+                <td class="text-end text-monospace">${nf(item.pct)}%</td>
             </tr>`;
         }).join('');
 
@@ -165,8 +165,8 @@ function drawAllocation(items, total) {
                     callbacks: {
                         label: function(ctx) {
                             const val = ctx.parsed;
-                            const pct = total > 0 ? ((val / total) * 100).toFixed(2) : '0.00';
-                            return ctx.label + ': Rp ' + Number(val).toLocaleString('id-ID', {minimumFractionDigits:2}) + ' (' + pct + '%)';
+                            const pct = total > 0 ? nf((val / total) * 100) : '0.00';
+                            return ctx.label + ': Rp ' + nf(val) + ' (' + pct + '%)';
                         }
                     }
                 }
