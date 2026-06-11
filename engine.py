@@ -49,24 +49,55 @@ class TradingEngine:
         sys.exit(0)
 
     def _get_dynamic_symbols(self) -> list:
+        return getattr(self, '_bullish_symbols', None) or config.BOT_SYMBOLS
+
+    def _auto_screen_bullish(self) -> list:
         try:
-            f = Path("/tmp/tokobot_selected_symbols.json")
-            if f.exists():
-                data = json.loads(f.read_text())
-                syms = data.get("symbols", [])
-                if syms:
-                    toko_syms = []
-                    for s in syms:
-                        if s.endswith("IDR"):
-                            name = s[:-3]
-                            toko_syms.append(f"{name}_IDR")
-                        else:
-                            toko_syms.append(s)
-                    merged = list(dict.fromkeys(config.BOT_SYMBOLS + toko_syms))
-                    return merged
+            tickers = self.client.get_ticker_24hr()
+            coins = []
+            for t in tickers:
+                sym = t.get("symbol", "")
+                if not sym.endswith("IDR"):
+                    continue
+                price = float(t.get("lastPrice", 0))
+                change = float(t.get("priceChangePercent", 0))
+                if price <= 0:
+                    continue
+                coins.append({"symbol": sym, "change_pct": change})
+            coins.sort(key=lambda x: x["change_pct"], reverse=True)
+            top10 = coins[:10]
+
+            import numpy as np
+            bullish = []
+            for c in top10:
+                raw = c["symbol"]
+                toko_sym = raw[:-3] + "_" + raw[-3:]
+                try:
+                    klines = self.client.get_klines(toko_sym, interval="1h", limit=50)
+                    if len(klines) < 21:
+                        continue
+                    closes = [k.close for k in klines]
+                    fast = float(np.mean(closes[-9:]))
+                    slow = float(np.mean(closes[-21:]))
+                    if fast > slow:
+                        bullish.append(toko_sym)
+                except Exception:
+                    continue
+
+            return bullish
+        except Exception as e:
+            logger.warning(f"Auto-screen failed: {e}")
+            return []
+
+    def _sync_selected_file(self, symbols: list):
+        try:
+            raw = []
+            for s in symbols:
+                name = s.replace("_IDR", "IDR")
+                raw.append(name)
+            Path("/tmp/tokobot_selected_symbols.json").write_text(json.dumps({"symbols": raw}))
         except Exception:
             pass
-        return config.BOT_SYMBOLS
 
     def _add_symbol(self, symbol: str):
         if symbol in self.strategies:
@@ -296,6 +327,10 @@ class TradingEngine:
         self.init_strategies()
         self.preload_klines()
 
+        bullish = self._auto_screen_bullish()
+        if bullish:
+            self._bullish_symbols = bullish
+            self._sync_selected_file(bullish)
         symbols = self._get_dynamic_symbols()
         logger.info(f"Starting bot in {config.BOT_MODE.upper()} mode | Strategies: {config.BOT_STRATEGIES} | Symbols: {symbols}")
 
@@ -325,14 +360,30 @@ class TradingEngine:
             try:
                 self._save_equity_periodic()
                 heartbeat += 1
+
                 if heartbeat % 2 == 0:
-                    positions = get_active_positions()
-                    active_syms = self._get_dynamic_symbols()
-                    for sym in active_syms:
+                    bullish = self._auto_screen_bullish()
+                    if bullish:
+                        self._bullish_symbols = bullish
+                        self._sync_selected_file(bullish)
+
+                    active = self._get_dynamic_symbols()
+                    for sym in active:
                         if sym not in self.strategies:
                             self._add_symbol(sym)
-                    logger.info(f"♥ Bot LIVE | {len(active_syms)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
-                    add_log("INFO", f"Bot LIVE | {len(active_syms)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
+
+                    positions = get_active_positions()
+                    pos_syms = {p.symbol for p in positions}
+                    for sym in list(self.strategies.keys()):
+                        if sym in config.BOT_SYMBOLS:
+                            continue
+                        if sym not in active and sym not in pos_syms:
+                            logger.info(f"[Auto] Removing {sym} from strategies")
+                            del self.strategies[sym]
+
+                    logger.info(f"♥ Bot LIVE | {len(active)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
+                    add_log("INFO", f"Bot LIVE | {len(active)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
+
                 time.sleep(30)
             except KeyboardInterrupt:
                 break
