@@ -62,7 +62,6 @@
 const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
 let allCoins = [];
 let showGainersMode = true;
-let selectedSymbols = new Set();
 
 async function loadTrending() {
     try {
