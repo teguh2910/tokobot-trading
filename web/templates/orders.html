@@ -33,7 +33,7 @@
 <script>
 const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
 async function loadOrders() {
-    const res = await fetch('/api/orders/active');
+    const res = await fetch('/api/orders/active?v=2');
     const data = await res.json();
     const tbody = document.querySelector('#positions-table tbody');
     tbody.innerHTML = '';
