@@ -170,18 +170,23 @@ class SignalManager:
 
                 min_notional = self.client.get_min_notional()
                 qty = self.client.round_quantity(position.symbol, actual_qty)
-                if qty * position.current_price < min_notional:
-                    logger.warning(f"Cannot close {position.symbol}: step-rounded qty={qty} val={qty * position.current_price:.0f} < {min_notional} IDR (actual balance value ~{actual_qty * position.current_price:.0f} IDR). Removing stale position.")
-                    remove_position(position.symbol, position.side)
-                    return
-
                 side = 1 if position.side == "BUY" else 0
-                order = self.client.new_order(
-                    symbol=position.symbol,
-                    side=side,
-                    order_type=2,
-                    quantity=str(qty),
-                )
+
+                if qty * position.current_price >= min_notional:
+                    order = self.client.new_order(
+                        symbol=position.symbol,
+                        side=side,
+                        order_type=2,
+                        quantity=str(qty),
+                    )
+                else:
+                    logger.info(f"Try quoteOrderQty for {position.symbol} sell (qty={qty} val={qty * position.current_price:.0f} < {min_notional})")
+                    order = self.client.new_order(
+                        symbol=position.symbol,
+                        side=side,
+                        order_type=2,
+                        quote_order_qty=str(int(min_notional)),
+                    )
 
                 close_price = order.price
                 if close_price <= 0 and order.cum_quote_qty > 0 and order.executed_qty > 0:
@@ -210,7 +215,12 @@ class SignalManager:
                 remove_position(position.symbol, position.side)
                 logger.info(f"[LIVE] Closed {position.symbol} {position.side} @ {close_price:.2f} PnL={pnl:.2f} | {reason}")
             except Exception as e:
-                logger.error(f"[LIVE] Close position failed: {e}")
+                err = str(e)
+                if "321" in err or "2202" in err:
+                    logger.warning(f"Removing untradeable position {position.symbol}: {e}")
+                    remove_position(position.symbol, position.side)
+                else:
+                    logger.error(f"[LIVE] Close position failed: {e}")
 
     def _get_model(self, model_type: str, symbol: str, side: str):
         from db import get_active_positions
