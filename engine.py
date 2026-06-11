@@ -39,6 +39,7 @@ class TradingEngine:
         self.running = False
         self.last_equity_save = 0
         self.symbol_prices: Dict[str, float] = {}
+        self._pending_ws_streams: list = []
 
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -114,13 +115,17 @@ class TradingEngine:
             if klines:
                 for s in self.strategies[symbol].values():
                     s.update_klines(klines)
+            self._pending_ws_streams.append(f"{symbol.replace('_', '').lower()}@kline_{config.BOT_INTERVAL}")
+            self._pending_ws_streams.append(f"{symbol.replace('_', '').lower()}@aggTrade")
         except Exception:
             pass
-        ws_sym = symbol.replace("_", "").lower()
-        self.ws.subscribe(f"{ws_sym}@kline_{config.BOT_INTERVAL}")
-        self.ws.subscribe(f"{ws_sym}@aggTrade")
         names = ", ".join(self.strategies[symbol].keys())
         logger.info(f"[Dynamic] Added {symbol} with strategies [{names}]")
+
+    def _flush_ws_subscriptions(self):
+        if self._pending_ws_streams and self.ws:
+            self.ws.subscribe_batch(self._pending_ws_streams)
+            self._pending_ws_streams = []
 
     def init_strategies(self):
         symbols = self._get_dynamic_symbols()
@@ -371,6 +376,7 @@ class TradingEngine:
                     for sym in active:
                         if sym not in self.strategies:
                             self._add_symbol(sym)
+                    self._flush_ws_subscriptions()
 
                     positions = get_active_positions()
                     pos_syms = {p.symbol for p in positions}
