@@ -13,8 +13,8 @@ class Config:
 
     # Bot
     BOT_MODE = os.getenv("BOT_MODE", "paper")
-    BOT_STRATEGY = os.getenv("BOT_STRATEGY", "ma_cross")
-    BOT_STRATEGIES = [s.strip() for s in os.getenv("BOT_STRATEGIES", "ma_cross").split(",")]
+    BOT_STRATEGY = "scalp"
+    BOT_STRATEGIES = ["scalp"]
     BOT_SYMBOLS = [s.strip() for s in os.getenv("BOT_SYMBOLS", "BTC_IDR").split(",")]
     BOT_INTERVAL = "1m"
 
