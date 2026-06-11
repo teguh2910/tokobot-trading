@@ -162,22 +162,23 @@ async def api_dashboard():
 
 
 @app.get("/api/trades")
-async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit: int = 100, sync: int = 0):
-    if sync:
-        try:
-            from client.rest import TokocryptoClient
-            client = TokocryptoClient()
+async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit: int = 100):
+    try:
+        from client.rest import TokocryptoClient
+        client = TokocryptoClient()
 
-            symbols = symbol.split(",") if symbol else cfg.get("BOT_SYMBOLS", ["BTC_IDR"])
-            result = []
-            for sym in symbols:
-                sym = sym.strip()
-                if not sym:
-                    continue
-                try:
-                    api_trades = client.get_trade_history(sym, limit=500)
-                    for t in api_trades:
-                        result.append({
+        symbols = symbol.split(",") if symbol else cfg.get("BOT_SYMBOLS", ["BTC_IDR"])
+        result = []
+        for sym in symbols:
+            sym = sym.strip()
+            if not sym:
+                continue
+            try:
+                api_trades = client.get_trade_history(sym, limit=500)
+                for t in api_trades:
+                    if side and t.side_str.lower() != side.lower():
+                        continue
+                    result.append({
                             "trade_id": t.trade_id,
                             "order_id": t.order_id,
                             "symbol": t.symbol,
@@ -190,17 +191,13 @@ async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit
                             "trade_time": int(t.time),
                             "trade_time_str": datetime.fromtimestamp(int(t.time) / 1000).strftime("%Y-%m-%d %H:%M:%S"),
                         })
-                except Exception as e:
-                    logger.warning(f"Sync trades {sym}: {e}")
-            result.sort(key=lambda x: x["trade_time"], reverse=True)
-            return {"trades": result[:limit]}
-        except Exception as e:
-            logger.warning(f"Sync failed: {e}")
-
-    trades = get_trade_history(limit=limit, symbol=symbol, strategy=strategy, side=side)
-    for t in trades:
-        t["trade_time_str"] = datetime.fromtimestamp(t["trade_time"] / 1000).strftime("%Y-%m-%d %H:%M:%S")
-    return {"trades": trades}
+            except Exception as e:
+                logger.warning(f"Fetch trades {sym}: {e}")
+        result.sort(key=lambda x: x["trade_time"], reverse=True)
+        return {"trades": result[:limit]}
+    except Exception as e:
+        logger.warning(f"Fetch trades failed: {e}")
+        return {"trades": []}
 
 
 @app.get("/api/orders/active")
