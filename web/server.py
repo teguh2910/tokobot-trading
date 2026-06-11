@@ -162,7 +162,27 @@ async def api_dashboard():
 
 
 @app.get("/api/trades")
-async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit: int = 100):
+async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit: int = 100, sync: int = 0):
+    if sync:
+        try:
+            from client.rest import TokocryptoClient
+            from db import save_trade
+            from models import Trade
+            client = TokocryptoClient()
+            symbols = symbol.split(",") if symbol else cfg.get("BOT_SYMBOLS", ["BTC_IDR"])
+            for sym in symbols:
+                sym = sym.strip()
+                if not sym:
+                    continue
+                try:
+                    api_trades = client.get_trade_history(sym, limit=500)
+                    for t in api_trades:
+                        save_trade(t, strategy="exchange")
+                except Exception as e:
+                    logger.warning(f"Sync trades {sym}: {e}")
+        except Exception as e:
+            logger.warning(f"Sync failed: {e}")
+
     trades = get_trade_history(limit=limit, symbol=symbol, strategy=strategy, side=side)
     for t in trades:
         t["trade_time_str"] = datetime.fromtimestamp(t["trade_time"] / 1000).strftime("%Y-%m-%d %H:%M:%S")
