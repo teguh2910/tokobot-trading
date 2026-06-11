@@ -99,36 +99,51 @@ async def portfolio_page(request: Request):
 async def api_dashboard():
     metrics = get_performance_metrics()
     positions = get_active_positions()
-    active_orders = []
     try:
         from client.rest import TokocryptoClient
         client = TokocryptoClient()
         balances, can_trade = client.get_account_info()
         balance_data = [{"asset": b.asset, "free": b.free, "locked": b.locked, "total": b.total} for b in balances]
+        prices = client.get_ticker()
     except Exception as e:
         balance_data = []
+        prices = {}
         logger.warning(f"Dashboard balance fetch failed: {e}")
+
+    unrealized_pnl = 0.0
+    pos_list = []
+    for p in positions:
+        sym = p.symbol.replace("_", "")
+        current_price = prices.get(sym, 0) or p.current_price
+        p.current_price = current_price
+        pos_pnl = p.pnl
+        pos_pnl_pct = p.pnl_pct
+        unrealized_pnl += pos_pnl
+        pos_list.append({
+            "symbol": p.symbol, "side": p.side,
+            "entry_price": p.entry_price, "quantity": p.quantity,
+            "current_price": current_price,
+            "pnl": round(pos_pnl, 2), "pnl_pct": round(pos_pnl_pct, 2),
+            "stop_loss": p.stop_loss, "take_profit": p.take_profit,
+        })
+
+    total_pnl = round(metrics.total_pnl + unrealized_pnl, 2)
+    profit_factor = metrics.profit_factor_str
+    if metrics.total_trades == 0 and unrealized_pnl != 0:
+        profit_factor = "—"
 
     return {
         "metrics": {
             "total_trades": metrics.total_trades,
             "win_rate": f"{metrics.win_rate:.1f}",
-            "total_pnl": round(metrics.total_pnl, 2),
-            "profit_factor": metrics.profit_factor_str,
+            "total_pnl": total_pnl,
+            "profit_factor": profit_factor,
             "max_drawdown": round(metrics.max_drawdown, 2),
             "sharpe_ratio": round(metrics.sharpe_ratio, 2),
         },
         "balances": balance_data,
-        "positions": [
-            {
-                "symbol": p.symbol, "side": p.side,
-                "entry_price": p.entry_price, "quantity": p.quantity,
-                "pnl": round(p.pnl, 2), "pnl_pct": round(p.pnl_pct, 2),
-                "stop_loss": p.stop_loss, "take_profit": p.take_profit,
-            }
-            for p in positions
-        ],
-        "active_orders_count": len(active_orders),
+        "positions": pos_list,
+        "active_orders_count": len(positions),
         "bot_mode": bot_config.BOT_MODE,
         "bot_strategies": bot_config.BOT_STRATEGIES,
         "symbols": bot_config.BOT_SYMBOLS,
@@ -146,24 +161,44 @@ async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit
 @app.get("/api/orders/active")
 async def api_active_orders():
     positions = get_active_positions()
-    return {
-        "orders": [
-            {
-                "symbol": p.symbol, "side": p.side,
-                "price": p.entry_price, "qty": p.quantity,
-                "stop_loss": p.stop_loss, "take_profit": p.take_profit,
-                "pnl": round(p.pnl, 2), "open_time": p.open_time,
-                "strategy": p.strategy,
-            }
-            for p in positions
-        ]
-    }
+    try:
+        from client.rest import TokocryptoClient
+        prices = TokocryptoClient().get_ticker()
+    except Exception:
+        prices = {}
+    result = []
+    for p in positions:
+        sym = p.symbol.replace("_", "")
+        cp = prices.get(sym, 0) or p.entry_price
+        p.current_price = cp
+        result.append({
+            "symbol": p.symbol, "side": p.side,
+            "price": p.entry_price, "qty": p.quantity,
+            "current_price": cp,
+            "stop_loss": p.stop_loss, "take_profit": p.take_profit,
+            "pnl": round(p.pnl, 2), "open_time": p.open_time,
+            "strategy": p.strategy,
+        })
+    return {"orders": result}
 
 
 @app.get("/api/performance")
 async def api_performance():
     metrics = get_performance_metrics()
     equity = get_equity_history(500)
+    positions = get_active_positions()
+    try:
+        from client.rest import TokocryptoClient
+        prices = TokocryptoClient().get_ticker()
+    except Exception:
+        prices = {}
+    unrealized = 0.0
+    for p in positions:
+        cp = prices.get(p.symbol.replace("_", ""), 0)
+        if cp:
+            p.current_price = cp
+        unrealized += p.pnl
+    total_pnl = round(metrics.total_pnl + unrealized, 2)
     return {
         "metrics": {
             "total_trades": metrics.total_trades,
@@ -172,7 +207,7 @@ async def api_performance():
             "win_rate": round(metrics.win_rate, 2),
             "gross_profit": round(metrics.gross_profit, 2),
             "gross_loss": round(metrics.gross_loss, 2),
-            "total_pnl": round(metrics.total_pnl, 2),
+            "total_pnl": total_pnl,
             "profit_factor": round(metrics.profit_factor, 2),
             "max_drawdown": round(metrics.max_drawdown, 2),
             "sharpe_ratio": round(metrics.sharpe_ratio, 2),

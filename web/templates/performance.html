@@ -89,8 +89,8 @@
     <div class="col-md-12">
         <div class="card">
             <div class="card-header"><i class="bi bi-graph-up"></i> Equity Curve</div>
-            <div class="card-body">
-                <canvas id="equityChart" height="300"></canvas>
+            <div class="card-body" style="height:260px; position:relative">
+                <canvas id="equityChart" style="position:absolute;left:0;top:0;width:100%;height:100%"></canvas>
             </div>
         </div>
     </div>
@@ -106,21 +106,26 @@ async function loadPerformance() {
     const data = await res.json();
     const m = data.metrics;
 
+    const fmt = (v, d=2) => Number(v).toFixed(d);
     document.getElementById('perf-trades').textContent = m.total_trades;
     document.getElementById('perf-winrate').textContent = m.win_rate + '%';
-    document.getElementById('perf-profitfactor').textContent = m.profit_factor.toFixed(2);
-    document.getElementById('perf-sharpe').textContent = m.sharpe_ratio.toFixed(2);
-    document.getElementById('perf-gross-profit').textContent = m.gross_profit.toFixed(2);
-    document.getElementById('perf-gross-loss').textContent = Math.abs(m.gross_loss).toFixed(2);
-    document.getElementById('perf-avg-win').textContent = m.avg_win.toFixed(2);
-    document.getElementById('perf-avg-loss').textContent = m.avg_loss.toFixed(2);
-    document.getElementById('perf-drawdown').textContent = m.max_drawdown.toFixed(2) + '%';
-    document.getElementById('perf-total-pnl').textContent = m.total_pnl.toFixed(2);
+    document.getElementById('perf-profitfactor').textContent = m.total_trades === 0 ? '—' : fmt(m.profit_factor);
+    document.getElementById('perf-sharpe').textContent = m.total_trades === 0 ? '—' : fmt(m.sharpe_ratio);
+    document.getElementById('perf-gross-profit').textContent = m.total_trades === 0 ? '—' : fmt(m.gross_profit);
+    document.getElementById('perf-gross-loss').textContent = m.total_trades === 0 ? '—' : fmt(Math.abs(m.gross_loss));
+    document.getElementById('perf-avg-win').textContent = m.wins === 0 ? '—' : fmt(m.avg_win);
+    document.getElementById('perf-avg-loss').textContent = m.losses === 0 ? '—' : fmt(m.avg_loss);
+    document.getElementById('perf-drawdown').textContent = fmt(m.max_drawdown) + '%';
+    document.getElementById('perf-total-pnl').textContent = fmt(m.total_pnl);
     document.getElementById('perf-total-pnl').className = m.total_pnl >= 0 ? 'text-success' : 'text-danger';
-    document.getElementById('perf-best').textContent = m.best_trade.toFixed(2);
-    document.getElementById('perf-worst').textContent = m.worst_trade.toFixed(2);
+    document.getElementById('perf-best').textContent = m.total_trades === 0 ? '—' : fmt(m.best_trade);
+    document.getElementById('perf-worst').textContent = m.total_trades === 0 ? '—' : fmt(m.worst_trade);
 
-    const ctx = document.getElementById('equityChart').getContext('2d');
+    const canvas = document.getElementById('equityChart');
+    const parent = canvas.parentElement;
+    canvas.width = parent.clientWidth;
+    canvas.height = parent.clientHeight;
+    const ctx = canvas.getContext('2d');
     const labels = data.equity.map(e => new Date(e.timestamp).toLocaleDateString());
     const values = data.equity.map(e => e.equity);
 

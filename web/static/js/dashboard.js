@@ -9,11 +9,13 @@ async function loadDashboard() {
 
         document.getElementById('metric-trades').textContent = data.metrics.total_trades;
         document.getElementById('metric-winrate').textContent = data.metrics.win_rate + '%';
-        document.getElementById('metric-pnl').textContent = data.metrics.total_pnl.toLocaleString();
-        document.getElementById('metric-pnl').className = data.metrics.total_pnl >= 0 ? 'text-success' : 'text-danger';
+        const pnl = data.metrics.total_pnl;
+        document.getElementById('metric-pnl').textContent = Number(pnl).toLocaleString('id-ID', {minimumFractionDigits:2});
+        document.getElementById('metric-pnl').className = pnl >= 0 ? 'text-success' : 'text-danger';
         document.getElementById('metric-drawdown').textContent = data.metrics.max_drawdown + '%';
         document.getElementById('metric-orders').textContent = data.active_orders_count;
-        document.getElementById('metric-profitfactor').textContent = data.metrics.profit_factor;
+        const pfVal = data.metrics.profit_factor;
+        document.getElementById('metric-profitfactor').textContent = typeof pfVal === 'string' || pfVal > 0 ? pfVal : '—';
 
         const pfEl = document.getElementById('portfolio-value');
         if (pfEl) {

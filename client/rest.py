@@ -1,10 +1,13 @@
 import requests
 import time
-from typing import Optional, List
+from typing import Optional, List, Dict
 from urllib.parse import urlencode
 from config import config
 from client.signer import signed_params
 from models import Kline, Order, Trade, AccountBalance, Ticker
+
+MIN_NOTIONAL = 20000
+LOT_SIZE_CACHE: Dict[str, dict] = {}
 
 
 class TokocryptoClient:
@@ -13,6 +16,7 @@ class TokocryptoClient:
         self.base_site = config.BASE_URL_SITE
         self.api_key = config.API_KEY
         self.session = requests.Session()
+        self._lot_cache: Dict[str, dict] = {}
         self.session.headers.update({
             "X-MBX-APIKEY": self.api_key,
             "Content-Type": "application/x-www-form-urlencoded",
@@ -101,6 +105,41 @@ class TokocryptoClient:
         data = self._get("/api/v3/executionRules", params, base_site=True)
         return data
 
+    def get_lot_size(self, symbol: str) -> dict:
+        sym = symbol.replace("_", "")
+        if sym in self._lot_cache:
+            return self._lot_cache[sym]
+        try:
+            data = self._get("/api/v3/exchangeInfo", {"symbol": sym}, base_site=True)
+            if isinstance(data, dict):
+                for s in data.get("symbols", []):
+                    for f in s.get("filters", []):
+                        if f.get("filterType") == "LOT_SIZE":
+                            self._lot_cache[sym] = f
+                            return f
+        except Exception:
+            pass
+        return {"minQty": "0", "maxQty": "0", "stepSize": "0"}
+
+    def round_quantity(self, symbol: str, quantity: float) -> float:
+        lot = self.get_lot_size(symbol)
+        step = float(lot.get("stepSize", 0))
+        min_qty = float(lot.get("minQty", 0))
+        if step <= 0:
+            return 0
+        step_str = str(step)
+        precision = len(step_str.split(".")[1]) if "." in step_str else 0
+        qty = round(quantity // step * step, precision)
+        if qty < min_qty:
+            if quantity >= min_qty:
+                qty = min_qty
+            else:
+                return 0
+        return qty
+
+    def get_min_notional(self) -> float:
+        return MIN_NOTIONAL
+
     def get_ticker(self, symbol: str = None) -> dict:
         params = {}
         if symbol:
@@ -181,6 +220,7 @@ class TokocryptoClient:
             price=float(raw.get("price", price or 0)),
             orig_qty=float(raw.get("origQty", quantity or 0)),
             executed_qty=float(raw.get("executedQty", 0)),
+            cum_quote_qty=float(raw.get("cummulativeQuoteQty", 0)),
             status=raw.get("status", 0),
             create_time=raw.get("createTime", int(time.time() * 1000)),
             client_id=raw.get("clientId", client_id or ""),
@@ -209,6 +249,7 @@ class TokocryptoClient:
                 price=float(raw.get("price", 0)),
                 orig_qty=float(raw.get("origQty", 0)),
                 executed_qty=float(raw.get("executedQty", 0)),
+                cum_quote_qty=float(raw.get("cummulativeQuoteQty", 0)),
                 status=raw.get("status", 0),
                 create_time=raw.get("createTime", 0),
                 client_id=raw.get("clientId", ""),

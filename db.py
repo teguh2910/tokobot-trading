@@ -33,7 +33,8 @@ def init_db():
             stop_price REAL DEFAULT 0,
             strategy TEXT DEFAULT '',
             create_time INTEGER,
-            update_time INTEGER DEFAULT 0
+            update_time INTEGER DEFAULT 0,
+            cum_quote_qty REAL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS trades (
@@ -96,6 +97,11 @@ def init_db():
         );
     """)
 
+    try:
+        cur.execute("ALTER TABLE orders ADD COLUMN cum_quote_qty REAL DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
 
@@ -117,11 +123,12 @@ def save_order(order: Order):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
-        "INSERT OR REPLACE INTO orders (order_id, symbol, side, type, price, orig_qty, executed_qty, status, client_id, stop_price, strategy, create_time, update_time) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO orders (order_id, symbol, side, type, price, orig_qty, executed_qty, status, client_id, stop_price, strategy, create_time, update_time, cum_quote_qty) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (order.order_id, order.symbol, order.side, order.type, order.price,
          order.orig_qty, order.executed_qty, order.status, order.client_id,
-         order.stop_price, "", order.create_time, int(datetime.now().timestamp() * 1000))
+         order.stop_price, "", order.create_time, int(datetime.now().timestamp() * 1000),
+         order.cum_quote_qty)
     )
     conn.commit()
     conn.close()

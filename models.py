@@ -46,6 +46,7 @@ class Order:
     executed_qty: float
     status: int
     create_time: int
+    cum_quote_qty: float = 0.0
     client_id: str = ""
     stop_price: float = 0.0
     iceberg_qty: float = 0.0

@@ -6,16 +6,24 @@ import os
 
 os.makedirs("logs", exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("logs/bot.log"),
-    ]
-)
+fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-logger = logging.getLogger("tokobot")
+sh = logging.StreamHandler(sys.stdout)
+sh.setLevel(logging.WARNING)
+sh.setFormatter(fmt)
+
+fh = logging.FileHandler("logs/bot.log")
+fh.setLevel(logging.INFO)
+fh.setFormatter(fmt)
+
+root = logging.getLogger()
+root.setLevel(logging.NOTSET)
+root.addHandler(sh)
+root.addHandler(fh)
+
+for name in ("tokobot", "tokobot.engine", "tokobot.signal", "tokobot.ws", "tokobot.risk"):
+    logging.getLogger(name).setLevel(logging.INFO)
+    logging.getLogger(name).propagate = True
 
 
 def parse_args():

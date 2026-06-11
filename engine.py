@@ -13,7 +13,7 @@ from signal_manager import SignalManager
 from strategies.ma_cross import MACrossoverStrategy
 from strategies.rsi import RSIStrategy
 from strategies.grid import GridStrategy
-from db import init_db, init_risk_settings, add_log, get_active_positions
+from db import init_db, init_risk_settings, add_log, get_active_positions, remove_position
 from models import AccountBalance
 
 logger = logging.getLogger("tokobot.engine")
@@ -136,22 +136,47 @@ class TradingEngine:
             return
 
         balance = self._get_balance_for_symbol(signal.symbol, signal.action)
-        settings = self.risk.get_risk_settings(signal.strategy)
-        risk_amount = balance * (settings.get("risk_per_trade", 1.0) / 100)
-        signal.quantity = risk_amount / signal.price if signal.price > 0 else 0
-
-        if signal.quantity <= 0:
-            logger.warning(f"Invalid quantity for {signal.symbol}: {signal.quantity}")
+        if balance <= 0:
+            logger.warning(f"No balance for {signal.symbol} {signal.action}")
             return
+
+        settings = self.risk.get_risk_settings(signal.strategy)
+        min_notional = self.client.get_min_notional()
+
+        max_qty = self.client.round_quantity(signal.symbol, balance / signal.price) if signal.price > 0 else 0
+        if max_qty <= 0:
+            logger.warning(f"Cannot afford any {signal.symbol}")
+            return
+
+        min_qty = self.client.round_quantity(signal.symbol, min_notional / signal.price)
+        if min_qty <= 0:
+            logger.warning(f"Cannot meet min notional for {signal.symbol}")
+            return
+        if min_qty * signal.price < min_notional:
+            step = float(self.client.get_lot_size(signal.symbol).get("stepSize", 0))
+            if step > 0:
+                min_qty = self.client.round_quantity(signal.symbol, min_notional / signal.price + step)
+
+        if max_qty < min_qty:
+            logger.warning(f"Balance too low for {signal.symbol}: need {min_qty:.6f} but can afford {max_qty:.6f}")
+            return
+
+        qty = min(min_qty, max_qty)
+        signal.quantity = qty
 
         if signal.stop_loss == 0:
             sl, tp = self.risk.calculate_sl_tp(signal.strategy, signal.action, signal.price)
             signal.stop_loss = sl
             signal.take_profit = tp
 
+        risk_amount = qty * abs(signal.price - signal.stop_loss) if signal.stop_loss > 0 else 0
+        if risk_amount > balance * (settings.get("risk_per_trade", 1.0) / 100):
+            logger.warning(f"Risk {risk_amount:.0f} exceeds limit ({settings.get('risk_per_trade', 1.0)}% of {balance:.0f}) for {signal.symbol}")
+            return
+
         order = self.signal_manager.execute_signal(signal)
         if order:
-            logger.info(f"Signal executed: {signal.action} {signal.symbol} qty={signal.quantity:.4f} SL={signal.stop_loss:.2f} TP={signal.take_profit:.2f}")
+            logger.info(f"Signal executed: {signal.action} {signal.symbol} qty={qty:.6f} val={qty*signal.price:.0f} IDR risk={risk_amount:.0f} SL={signal.stop_loss:.2f} TP={signal.take_profit:.2f}")
 
     def _check_positions(self, symbol: str, current_price: float):
         positions = get_active_positions()
@@ -177,6 +202,10 @@ class TradingEngine:
             qty = float(data.get("l", 0))
             logger.info(f"Order FILLED: {side} {symbol} {qty} @ {price}")
 
+            if side == "SELL":
+                remove_position(symbol, "BUY")
+                logger.info(f"Position closed via execution report: {symbol}")
+
         if exec_type == "CANCELED":
             logger.info(f"Order CANCELED: {symbol} id={order_id}")
 
@@ -196,7 +225,7 @@ class TradingEngine:
             return balance.free if balance else 0
         except Exception as e:
             logger.warning(f"Failed to get balance: {e}")
-            return 1000000
+            return 0
 
     def _save_equity_periodic(self):
         now = int(time.time())

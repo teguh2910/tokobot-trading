@@ -91,6 +91,41 @@ class SignalManager:
                 quantity=qty_str,
             )
             save_order(order)
+
+            if order.status == 2 and side == 0:
+                entry_price = order.price if order.price > 0 else signal.price
+                if order.cum_quote_qty > 0 and order.executed_qty > 0:
+                    entry_price = order.cum_quote_qty / order.executed_qty
+                pos = Position(
+                    symbol=signal.symbol,
+                    side="BUY",
+                    entry_price=entry_price,
+                    quantity=order.executed_qty or signal.quantity,
+                    current_price=entry_price,
+                    stop_loss=signal.stop_loss,
+                    take_profit=signal.take_profit,
+                    open_time=order.create_time,
+                    strategy=signal.strategy,
+                    order_id=order.order_id,
+                )
+                save_position(pos)
+
+                entry_trade = Trade(
+                    trade_id=f"t_{uuid.uuid4().hex[:12]}",
+                    order_id=order.order_id,
+                    symbol=signal.symbol,
+                    price=entry_price,
+                    qty=pos.quantity,
+                    quote_qty=entry_price * pos.quantity,
+                    commission=0,
+                    commission_asset="",
+                    is_buyer=True,
+                    is_maker=False,
+                    time=order.create_time,
+                )
+                save_trade(entry_trade, pnl=0, strategy=signal.strategy)
+                logger.info(f"[LIVE] Position opened: BUY {signal.symbol} qty={pos.quantity} @ {entry_price:.2f}")
+
             logger.info(f"[LIVE] Order placed: {order.order_id} {signal.action} {signal.symbol} qty={signal.quantity}")
             return order
 
@@ -132,8 +167,33 @@ class SignalManager:
                     order_type=2,
                     quantity=str(position.quantity),
                 )
-                logger.info(f"[LIVE] Close position: {order.order_id} {position.symbol}")
+
+                close_price = order.price
+                if close_price <= 0 and order.cum_quote_qty > 0 and order.executed_qty > 0:
+                    close_price = order.cum_quote_qty / order.executed_qty
+                if close_price <= 0:
+                    close_price = position.current_price
+
+                pnl = (close_price - position.entry_price) * position.quantity
+                if position.side == "SELL":
+                    pnl = (position.entry_price - close_price) * position.quantity
+
+                trade = Trade(
+                    trade_id=f"t_{uuid.uuid4().hex[:12]}",
+                    order_id=order.order_id,
+                    symbol=position.symbol,
+                    price=close_price,
+                    qty=position.quantity,
+                    quote_qty=close_price * position.quantity,
+                    commission=0,
+                    commission_asset="",
+                    is_buyer=(side == 0),
+                    is_maker=False,
+                    time=int(datetime.now().timestamp() * 1000),
+                )
+                save_trade(trade, pnl=pnl, strategy=position.strategy)
                 remove_position(position.symbol, position.side)
+                logger.info(f"[LIVE] Closed {position.symbol} {position.side} @ {close_price:.2f} PnL={pnl:.2f} | {reason}")
             except Exception as e:
                 logger.error(f"[LIVE] Close position failed: {e}")
 
