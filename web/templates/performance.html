@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-graph-up"></i> Performance & Reporting</h4>
+</div>
+
+<div class="row g-2 g-lg-3 mb-3 mb-lg-4">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Total Trades</h6>
+            <h3 id="perf-trades">0</h3>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Win Rate</h6>
+            <h3 id="perf-winrate">0%</h3>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Profit Factor</h6>
+            <h3 id="perf-profitfactor">0</h3>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Sharpe Ratio</h6>
+            <h3 id="perf-sharpe">0</h3>
+        </div></div>
+    </div>
+</div>
+
+<div class="row g-2 g-lg-3 mb-3 mb-lg-4">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Gross Profit</h6>
+            <h3 class="text-success" id="perf-gross-profit">0</h3>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Gross Loss</h6>
+            <h3 class="text-danger" id="perf-gross-loss">0</h3>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Avg Win</h6>
+            <h3 class="text-success" id="perf-avg-win">0</h3>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Avg Loss</h6>
+            <h3 class="text-danger" id="perf-avg-loss">0</h3>
+        </div></div>
+    </div>
+</div>
+
+<div class="row g-2 g-lg-3 mb-3 mb-lg-4">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Max Drawdown</h6>
+            <h3 class="text-warning" id="perf-drawdown">0%</h3>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Total P&L</h6>
+            <h3 id="perf-total-pnl">0</h3>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Best Trade</h6>
+            <h3 class="text-success" id="perf-best">0</h3>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body text-center py-2 py-lg-3">
+            <h6 class="text-muted">Worst Trade</h6>
+            <h3 class="text-danger" id="perf-worst">0</h3>
+        </div></div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-graph-up"></i> Equity Curve</div>
+            <div class="card-body" style="height:200px; position:relative">
+                <canvas id="equityChart" style="position:absolute;left:0;top:0;width:100%;height:100%"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let equityChart;
+
+async function loadPerformance() {
+    const res = await fetch('/api/performance');
+    const data = await res.json();
+    const m = data.metrics;
+
+    const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
+    document.getElementById('perf-trades').textContent = m.total_trades;
+    document.getElementById('perf-winrate').textContent = nf(m.win_rate) + '%';
+    document.getElementById('perf-profitfactor').textContent = m.total_trades === 0 ? '—' : nf(m.profit_factor);
+    document.getElementById('perf-sharpe').textContent = m.total_trades === 0 ? '—' : nf(m.sharpe_ratio);
+    document.getElementById('perf-gross-profit').textContent = m.total_trades === 0 ? '—' : nf(m.gross_profit);
+    document.getElementById('perf-gross-loss').textContent = m.total_trades === 0 ? '—' : nf(Math.abs(m.gross_loss));
+    document.getElementById('perf-avg-win').textContent = m.wins === 0 ? '—' : nf(m.avg_win);
+    document.getElementById('perf-avg-loss').textContent = m.losses === 0 ? '—' : nf(m.avg_loss);
+    document.getElementById('perf-drawdown').textContent = nf(m.max_drawdown) + '%';
+    document.getElementById('perf-total-pnl').textContent = nf(m.total_pnl);
+    document.getElementById('perf-total-pnl').className = m.total_pnl >= 0 ? 'text-success' : 'text-danger';
+    document.getElementById('perf-best').textContent = m.total_trades === 0 ? '—' : nf(m.best_trade);
+    document.getElementById('perf-worst').textContent = m.total_trades === 0 ? '—' : nf(m.worst_trade);
+
+    const canvas = document.getElementById('equityChart');
+    const parent = canvas.parentElement;
+    canvas.width = parent.clientWidth;
+    canvas.height = parent.clientHeight;
+    const ctx = canvas.getContext('2d');
+    const labels = data.equity.map(e => new Date(e.timestamp).toLocaleDateString());
+    const values = data.equity.map(e => e.equity);
+
+    if (equityChart) equityChart.destroy();
+    equityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Equity',
+                data: values,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13,110,253,0.1)',
+                fill: true,
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: false } }
+        }
+    });
+}
+
+loadPerformance();
+setInterval(loadPerformance, 30000);
+</script>
+{% endblock %}

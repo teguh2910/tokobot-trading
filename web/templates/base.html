@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tokocrypto Trading Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Mobile navbar -->
+    <nav class="navbar navbar-dark d-lg-none sticky-top p-2" style="background:#111827;border-bottom:1px solid #1e293b">
+        <div class="container-fluid px-1">
+            <button class="btn btn-sm btn-outline-secondary border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+            <span class="fw-bold"><i class="bi bi-robot"></i> TokoBot</span>
+            <span class="badge bg-{{ 'success' if cfg.BOT_MODE == 'live' else 'warning' }}">{{ cfg.BOT_MODE.upper() }}</span>
+        </div>
+    </nav>
+
+    <!-- Offcanvas nav for mobile -->
+    <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="mobileMenu" style="background:#111827;width:240px">
+        <div class="offcanvas-header border-bottom border-secondary">
+            <span class="fs-5 fw-bold"><i class="bi bi-robot"></i> TokoBot</span>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <ul class="nav nav-pills flex-column p-2">
+                <li class="nav-item"><a href="/" class="nav-link" id="mob-nav-dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                <li><a href="/trades" class="nav-link" id="mob-nav-trades"><i class="bi bi-arrow-left-right"></i> Trades</a></li>
+                <!-- <li><a href="/orders" class="nav-link" id="mob-nav-orders"><i class="bi bi-basket"></i> Orders</a></li> -->
+                <li><a href="/performance" class="nav-link" id="mob-nav-performance"><i class="bi bi-graph-up"></i> Performance</a></li>
+                <!-- <li><a href="/strategy" class="nav-link" id="mob-nav-strategy"><i class="bi bi-sliders"></i> Strategy</a></li> -->
+                <li><a href="/trending" class="nav-link" id="mob-nav-trending"><i class="bi bi-fire"></i> Market</a></li>
+                <li><a href="/logs" class="nav-link" id="mob-nav-logs"><i class="bi bi-terminal"></i> Logs</a></li>
+                <li><a href="/portfolio" class="nav-link" id="mob-nav-portfolio"><i class="bi bi-wallet2"></i> Portfolio</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="d-flex">
+        <!-- Desktop sidebar -->
+        <nav class="sidebar d-flex flex-column flex-shrink-0 p-3 d-none d-lg-flex">
+            <a href="/" class="d-flex align-items-center mb-3 text-decoration-none">
+                <span class="fs-5 fw-bold"><i class="bi bi-robot"></i> TokoBot</span>
+            </a>
+            <hr>
+            <ul class="nav nav-pills flex-column mb-auto">
+                <li class="nav-item">
+                    <a href="/" class="nav-link" id="nav-dashboard">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="/trades" class="nav-link" id="nav-trades">
+                        <i class="bi bi-arrow-left-right"></i> Trades
+                    </a>
+                </li>
+                <!-- <li>
+                    <a href="/orders" class="nav-link" id="nav-orders">
+                        <i class="bi bi-basket"></i> Orders
+                    </a>
+                </li> -->
+                <li>
+                    <a href="/performance" class="nav-link" id="nav-performance">
+                        <i class="bi bi-graph-up"></i> Performance
+                    </a>
+                </li>
+                <!-- <li>
+                    <a href="/strategy" class="nav-link" id="nav-strategy">
+                        <i class="bi bi-sliders"></i> Strategy
+                    </a>
+                </li> -->
+                <li>
+                    <a href="/trending" class="nav-link" id="nav-trending">
+                        <i class="bi bi-fire"></i> Market
+                    </a>
+                </li>
+                <li>
+                    <a href="/logs" class="nav-link" id="nav-logs">
+                        <i class="bi bi-terminal"></i> Logs
+                    </a>
+                </li>
+                <li>
+                    <a href="/portfolio" class="nav-link" id="nav-portfolio">
+                        <i class="bi bi-wallet2"></i> Portfolio
+                    </a>
+                </li>
+            </ul>
+            <hr>
+            <div class="text-muted small" id="sidebar-status">
+                <i class="bi bi-circle-fill text-success"></i>
+                <span id="mode-badge">{{ cfg.BOT_MODE.upper() }}</span>
+            </div>
+        </nav>
+
+        <main class="main-content flex-grow-1 p-3 p-lg-4">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function activateNav(prefix) {
+            const path = window.location.pathname;
+            document.querySelectorAll(`[id^="${prefix}"]`).forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === path || (href !== '/' && path.startsWith(href))) {
+                    link.classList.add('active');
+                }
+            });
+        }
+        activateNav('nav-');
+        activateNav('mob-nav-');
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

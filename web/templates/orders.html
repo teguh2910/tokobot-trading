@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-basket"></i> Active Orders</h4>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-lightning"></i> Active Positions</div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm" id="positions-table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Side</th>
+                        <th>Entry</th>
+                        <th>Current</th>
+                        <th>Qty</th>
+                        <th>SL</th>
+                        <th>TP</th>
+                        <th>P&L</th>
+                        <th>Strategy</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
+async function loadOrders() {
+    const res = await fetch('/api/orders/active?v=2');
+    const data = await res.json();
+    const tbody = document.querySelector('#positions-table tbody');
+    tbody.innerHTML = '';
+    data.orders.forEach(o => {
+        const pnlClass = o.pnl >= 0 ? 'text-success' : 'text-danger';
+        tbody.innerHTML += `<tr>
+            <td>${o.symbol}</td>
+            <td><span class="badge bg-${o.side === 'BUY' ? 'success' : 'danger'}">${o.side}</span></td>
+            <td>${nf(o.price)}</td>
+            <td>${nf(o.current_price || 0)}</td>
+            <td>${nf(o.qty, 4)}</td>
+            <td>${nf(o.stop_loss)}</td>
+            <td>${nf(o.take_profit)}</td>
+            <td class="${pnlClass}">${nf(o.pnl)}</td>
+            <td>${o.strategy}</td>
+        </tr>`;
+    });
+}
+loadOrders();
+setInterval(loadOrders, 10000);
+</script>
+{% endblock %}
