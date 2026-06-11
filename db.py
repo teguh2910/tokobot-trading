@@ -335,6 +335,33 @@ def get_trade_history(limit: int = 100, symbol: str = "", strategy: str = "", si
     return [dict(r) for r in rows]
 
 
+def sync_trades_db():
+    conn = get_conn()
+    cur = conn.cursor()
+    from client.rest import TokocryptoClient
+    from config import config
+    client = TokocryptoClient()
+    symbols = config.BOT_SYMBOLS
+    all_trades = []
+    for sym in symbols:
+        try:
+            all_trades.extend(client.get_trade_history(sym, limit=500))
+        except Exception as e:
+            logger.warning(f"sync_trades_db {sym}: {e}")
+    cur.execute("DELETE FROM trades")
+    for t in all_trades:
+        cur.execute(
+            "INSERT INTO trades (trade_id, order_id, symbol, side, price, qty, quote_qty, commission, commission_asset, pnl, strategy, trade_time) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (t.trade_id, t.order_id, t.symbol, t.side_str,
+             t.price, t.qty, t.quote_qty, t.commission,
+             t.commission_asset, 0, "exchange", int(t.time))
+        )
+    conn.commit()
+    conn.close()
+    logger.info(f"sync_trades_db: {len(all_trades)} trades synced from exchange")
+
+
 def get_equity_history(limit: int = 500) -> List[dict]:
     conn = get_conn()
     cur = conn.cursor()

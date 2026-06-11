@@ -161,6 +161,17 @@ async def api_dashboard():
     }
 
 
+@app.post("/api/trades/sync-db")
+async def api_sync_trades_db():
+    try:
+        from db import sync_trades_db
+        sync_trades_db()
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"sync-db failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/api/trades")
 async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit: int = 100):
     try:
@@ -520,4 +531,9 @@ def broadcast_sync(data: dict):
 
 
 def start_dashboard():
+    try:
+        from db import sync_trades_db
+        sync_trades_db()
+    except Exception as e:
+        logger.warning(f"Initial trade sync failed: {e}")
     uvicorn.run(app, host=bot_config.DASHBOARD_HOST, port=bot_config.DASHBOARD_PORT, log_level="warning")
