@@ -170,10 +170,12 @@ class SignalManager:
 
                 qty = self.client.round_quantity(position.symbol, actual_qty)
                 min_notional = self.client.get_min_notional()
+                logger.info(f"Close debug: {position.symbol} actual={actual_qty} qty={qty} price={position.current_price} value={qty * position.current_price:.0f} min={min_notional}")
                 if qty * position.current_price < min_notional:
                     step = float(self.client.get_lot_size(position.symbol).get("stepSize", 0))
                     if step > 0:
                         qty = self.client.round_quantity(position.symbol, actual_qty + step * 2)
+                        logger.info(f"Close debug step-up: new_qty={qty} value={qty * position.current_price:.0f}")
                     if qty * position.current_price < min_notional:
                         logger.warning(f"Cannot close {position.symbol}: {qty} × {position.current_price} < {min_notional}")
                         remove_position(position.symbol, position.side)
