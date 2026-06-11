@@ -166,10 +166,9 @@ async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit
     if sync:
         try:
             from client.rest import TokocryptoClient
-            from db import save_trade
-            from models import Trade
             client = TokocryptoClient()
             symbols = symbol.split(",") if symbol else cfg.get("BOT_SYMBOLS", ["BTC_IDR"])
+            result = []
             for sym in symbols:
                 sym = sym.strip()
                 if not sym:
@@ -177,9 +176,23 @@ async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit
                 try:
                     api_trades = client.get_trade_history(sym, limit=500)
                     for t in api_trades:
-                        save_trade(t, strategy="exchange")
+                        result.append({
+                            "trade_id": t.trade_id,
+                            "order_id": t.order_id,
+                            "symbol": t.symbol,
+                            "side": t.side_str,
+                            "price": t.price,
+                            "qty": t.qty,
+                            "quote_qty": t.quote_qty,
+                            "commission": t.commission,
+                            "commission_asset": t.commission_asset,
+                            "trade_time": t.time,
+                            "trade_time_str": datetime.fromtimestamp(t.time / 1000).strftime("%Y-%m-%d %H:%M:%S"),
+                        })
                 except Exception as e:
                     logger.warning(f"Sync trades {sym}: {e}")
+            result.sort(key=lambda x: x["trade_time"], reverse=True)
+            return {"trades": result[:limit]}
         except Exception as e:
             logger.warning(f"Sync failed: {e}")
 
