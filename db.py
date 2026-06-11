@@ -348,18 +348,45 @@ def sync_trades_db():
             all_trades.extend(client.get_trade_history(sym, limit=500))
         except Exception as e:
             logger.warning(f"sync_trades_db {sym}: {e}")
+
+    all_trades.sort(key=lambda t: t.time)
+
+    buys_by_symbol = {}
+    pnl_map = {}
+    for t in all_trades:
+        sym = t.symbol
+        qty = t.qty
+        price = t.price
+
+        if t.is_buyer:
+            buys_by_symbol.setdefault(sym, []).append([t.trade_id, qty, price])
+        else:
+            remaining = qty
+            buys = buys_by_symbol.get(sym, [])
+            while remaining > 0.000001 and buys:
+                buy_id, buy_qty, buy_price = buys[0]
+                match_qty = min(remaining, buy_qty)
+                pnl = (price - buy_price) * match_qty
+                pnl_map[t.trade_id] = pnl_map.get(t.trade_id, 0) + pnl
+                remaining -= match_qty
+                if buy_qty - match_qty < 0.000001:
+                    buys.pop(0)
+                else:
+                    buys[0][1] -= match_qty
+
     cur.execute("DELETE FROM trades")
     for t in all_trades:
+        pnl = round(pnl_map.get(t.trade_id, 0), 2)
         cur.execute(
             "INSERT INTO trades (trade_id, order_id, symbol, side, price, qty, quote_qty, commission, commission_asset, pnl, strategy, trade_time) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (t.trade_id, t.order_id, t.symbol, t.side_str,
              t.price, t.qty, t.quote_qty, t.commission,
-             t.commission_asset, 0, "exchange", int(t.time))
+             t.commission_asset, pnl, "exchange", int(t.time))
         )
     conn.commit()
     conn.close()
-    logger.info(f"sync_trades_db: {len(all_trades)} trades synced from exchange")
+    logger.info(f"sync_trades_db: {len(all_trades)} trades synced, PnL calculated")
 
 
 def get_equity_history(limit: int = 500) -> List[dict]:
