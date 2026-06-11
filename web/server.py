@@ -167,6 +167,7 @@ async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit
         try:
             from client.rest import TokocryptoClient
             client = TokocryptoClient()
+
             symbols = symbol.split(",") if symbol else cfg.get("BOT_SYMBOLS", ["BTC_IDR"])
             result = []
             for sym in symbols:
