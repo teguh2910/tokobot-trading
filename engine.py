@@ -222,26 +222,27 @@ class TradingEngine:
 
         settings = self.risk.get_risk_settings(signal.strategy)
         min_notional = self.client.get_min_notional()
+        trade_value = 50000
 
         max_qty = self.client.round_quantity(signal.symbol, balance / signal.price) if signal.price > 0 else 0
         if max_qty <= 0:
             logger.warning(f"Cannot afford any {signal.symbol}")
             return
 
-        min_qty = self.client.round_quantity(signal.symbol, min_notional / signal.price)
-        if min_qty <= 0:
-            logger.warning(f"Cannot meet min notional for {signal.symbol}")
+        target_qty = self.client.round_quantity(signal.symbol, trade_value / signal.price)
+        if target_qty <= 0:
+            logger.warning(f"Cannot meet {trade_value} IDR for {signal.symbol}")
             return
-        if min_qty * signal.price < min_notional:
+        if target_qty * signal.price < min_notional:
             step = float(self.client.get_lot_size(signal.symbol).get("stepSize", 0))
             if step > 0:
-                min_qty = self.client.round_quantity(signal.symbol, min_notional / signal.price + step)
+                target_qty = self.client.round_quantity(signal.symbol, trade_value / signal.price + step)
 
-        if max_qty < min_qty:
-            logger.warning(f"Balance too low for {signal.symbol}: need {min_qty:.6f} but can afford {max_qty:.6f}")
+        if max_qty < target_qty:
+            logger.warning(f"Balance too low for {signal.symbol}: need {target_qty:.6f} but can afford {max_qty:.6f}")
             return
 
-        qty = min(min_qty, max_qty)
+        qty = min(target_qty, max_qty)
         signal.quantity = qty
 
         if signal.stop_loss == 0:

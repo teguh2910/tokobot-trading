@@ -6,7 +6,7 @@ from config import config
 from client.signer import signed_params
 from models import Kline, Order, Trade, AccountBalance, Ticker
 
-MIN_NOTIONAL = 20000
+MIN_NOTIONAL = 50000
 LOT_SIZE_CACHE: Dict[str, dict] = {}
 
 
