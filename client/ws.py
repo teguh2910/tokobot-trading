@@ -68,6 +68,10 @@ class TokocryptoWebSocket:
             })
             self.ws.send(msg)
 
+    def subscribe(self, stream: str):
+        self.subscribed_streams.append(stream)
+        self._send_subscribe([stream])
+
     def connect(self, streams: list = None):
         if websocket is None:
             logger.error("websocket-client not installed")

@@ -1,7 +1,9 @@
+import json
 import logging
 import time
 import signal
 import sys
+from pathlib import Path
 from typing import Dict, Optional
 from datetime import datetime, timezone
 from config import config
@@ -46,9 +48,53 @@ class TradingEngine:
         self.stop()
         sys.exit(0)
 
-    def init_strategies(self):
+    def _get_dynamic_symbols(self) -> list:
+        try:
+            f = Path("/tmp/tokobot_selected_symbols.json")
+            if f.exists():
+                data = json.loads(f.read_text())
+                syms = data.get("symbols", [])
+                if syms:
+                    toko_syms = []
+                    for s in syms:
+                        if s.endswith("IDR"):
+                            name = s[:-3]
+                            toko_syms.append(f"{name}_IDR")
+                        else:
+                            toko_syms.append(s)
+                    merged = list(dict.fromkeys(config.BOT_SYMBOLS + toko_syms))
+                    return merged
+        except Exception:
+            pass
+        return config.BOT_SYMBOLS
+
+    def _add_symbol(self, symbol: str):
+        if symbol in self.strategies:
+            return
         active = config.BOT_STRATEGIES
-        for symbol in config.BOT_SYMBOLS:
+        self.strategies[symbol] = {}
+        for sname in active:
+            cls = STRATEGY_MAP.get(sname)
+            if not cls:
+                continue
+            self.strategies[symbol][sname] = cls(symbol, config.BOT_INTERVAL)
+        try:
+            klines = self.client.get_klines(symbol, config.BOT_INTERVAL, limit=100)
+            if klines:
+                for s in self.strategies[symbol].values():
+                    s.update_klines(klines)
+        except Exception:
+            pass
+        ws_sym = symbol.replace("_", "").lower()
+        self.ws.subscribe(f"{ws_sym}@kline_{config.BOT_INTERVAL}")
+        self.ws.subscribe(f"{ws_sym}@aggTrade")
+        names = ", ".join(self.strategies[symbol].keys())
+        logger.info(f"[Dynamic] Added {symbol} with strategies [{names}]")
+
+    def init_strategies(self):
+        symbols = self._get_dynamic_symbols()
+        active = config.BOT_STRATEGIES
+        for symbol in symbols:
             self.strategies[symbol] = {}
             for sname in active:
                 cls = STRATEGY_MAP.get(sname)
@@ -60,7 +106,8 @@ class TradingEngine:
             logger.info(f"Initialized strategies [{names}] for {symbol}")
 
     def preload_klines(self):
-        for symbol in config.BOT_SYMBOLS:
+        symbols = self._get_dynamic_symbols()
+        for symbol in symbols:
             try:
                 klines = self.client.get_klines(symbol, config.BOT_INTERVAL, limit=100)
                 strategies = self.strategies.get(symbol, {})
@@ -124,7 +171,8 @@ class TradingEngine:
             self._handle_account_update(data)
 
     def _to_toko_symbol(self, ws_symbol: str) -> str:
-        for sym in config.BOT_SYMBOLS:
+        all_syms = list(self.strategies.keys()) or config.BOT_SYMBOLS
+        for sym in all_syms:
             if ws_symbol.upper() == sym.replace("_", ""):
                 return sym
         return ws_symbol
@@ -248,10 +296,11 @@ class TradingEngine:
         self.init_strategies()
         self.preload_klines()
 
-        logger.info(f"Starting bot in {config.BOT_MODE.upper()} mode | Strategies: {config.BOT_STRATEGIES} | Symbols: {config.BOT_SYMBOLS}")
+        symbols = self._get_dynamic_symbols()
+        logger.info(f"Starting bot in {config.BOT_MODE.upper()} mode | Strategies: {config.BOT_STRATEGIES} | Symbols: {symbols}")
 
         ws_streams = []
-        for symbol in config.BOT_SYMBOLS:
+        for symbol in symbols:
             ws_sym = symbol.replace("_", "").lower()
             ws_streams.append(f"{ws_sym}@kline_{config.BOT_INTERVAL}")
             ws_streams.append(f"{ws_sym}@aggTrade")
@@ -278,8 +327,12 @@ class TradingEngine:
                 heartbeat += 1
                 if heartbeat % 2 == 0:
                     positions = get_active_positions()
-                    logger.info(f"♥ Bot LIVE | {len(config.BOT_SYMBOLS)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
-                    add_log("INFO", f"Bot LIVE | {len(config.BOT_SYMBOLS)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
+                    active_syms = self._get_dynamic_symbols()
+                    for sym in active_syms:
+                        if sym not in self.strategies:
+                            self._add_symbol(sym)
+                    logger.info(f"♥ Bot LIVE | {len(active_syms)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
+                    add_log("INFO", f"Bot LIVE | {len(active_syms)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
                 time.sleep(30)
             except KeyboardInterrupt:
                 break
