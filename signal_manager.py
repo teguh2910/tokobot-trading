@@ -160,12 +160,20 @@ class SignalManager:
             remove_position(position.symbol, position.side)
         else:
             try:
+                base_asset = position.symbol.split("_")[0]
+                balance = self.client.get_asset_balance(base_asset)
+                actual_qty = min(balance.free, position.quantity) if balance else position.quantity
+                if actual_qty <= 0:
+                    logger.warning(f"Cannot close {position.symbol}: no {base_asset} balance")
+                    remove_position(position.symbol, position.side)
+                    return
+                qty = self.client.round_quantity(position.symbol, actual_qty)
                 side = 1 if position.side == "BUY" else 0
                 order = self.client.new_order(
                     symbol=position.symbol,
                     side=side,
                     order_type=2,
-                    quantity=str(position.quantity),
+                    quantity=str(qty),
                 )
 
                 close_price = order.price
