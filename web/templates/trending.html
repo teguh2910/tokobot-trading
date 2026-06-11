@@ -8,7 +8,7 @@
     </div>
 </div>
 
-<div class="card">
+<div class="card mb-4">
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover table-sm" id="trending-table">
@@ -25,6 +25,32 @@
                     </tr>
                 </thead>
                 <tbody id="trending-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<h5 class="mb-3"><i class="bi bi-search"></i> Top 10 Screening</h5>
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm" id="screen-table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Price</th>
+                        <th>24h Chg</th>
+                        <th>RSI (14)</th>
+                        <th>MA9</th>
+                        <th>MA21</th>
+                        <th>Trend</th>
+                        <th>Vol Surge</th>
+                        <th>Signals</th>
+                    </tr>
+                </thead>
+                <tbody id="screen-body">
+                    <tr><td colspan="9" class="text-center text-muted">Loading...</td></tr>
+                </tbody>
             </table>
         </div>
     </div>
@@ -71,11 +97,53 @@ function renderTable() {
     }).join('');
 }
 
+async function loadScreen() {
+    try {
+        const sort = showGainersMode ? 'gainers' : 'losers';
+        const res = await fetch('/api/screen?limit=10&sort=' + sort);
+        const data = await res.json();
+        const items = data.screen || [];
+        const tbody = document.getElementById('screen-body');
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No data</td></tr>';
+            return;
+        }
+        tbody.innerHTML = items.map(c => {
+            const chgCls = c.change_pct >= 0 ? 'text-success' : 'text-danger';
+            const chgArrow = c.change_pct >= 0 ? '▲' : '▼';
+            const rsiCls = c.rsi < 35 ? 'text-success' : c.rsi > 65 ? 'text-danger' : '';
+            const trendCls = c.ma_bullish ? 'text-success' : 'text-danger';
+            const trendIcon = c.ma_bullish ? '▲' : '▼';
+            const volCls = c.vol_surge > 2 ? 'text-warning' : '';
+            const badges = c.signals.map(s => {
+                const cls = s.includes('bullish') || s.includes('oversold') ? 'bg-success' :
+                            s.includes('bearish') || s.includes('overbought') ? 'bg-danger' : 'bg-warning';
+                return `<span class="badge ${cls} me-1">${s}</span>`;
+            }).join('');
+            return `<tr>
+                <td><strong>${c.symbol}</strong></td>
+                <td>${nf(c.price)}</td>
+                <td class="${chgCls} fw-bold">${chgArrow} ${nf(c.change_pct)}%</td>
+                <td class="${rsiCls} fw-bold">${nf(c.rsi)}</td>
+                <td>${nf(c.ma_fast)}</td>
+                <td>${nf(c.ma_slow)}</td>
+                <td class="${trendCls}">${trendIcon} ${c.ma_bullish ? 'Bullish' : 'Bearish'}</td>
+                <td class="${volCls}">${nf(c.vol_surge)}x</td>
+                <td>${badges}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        document.getElementById('screen-body').innerHTML =
+            '<tr><td colspan="9" class="text-danger text-center">Failed to load</td></tr>';
+    }
+}
+
 function showGainers() {
     showGainersMode = true;
     document.getElementById('btn-gainers').classList.add('active');
     document.getElementById('btn-losers').classList.remove('active');
     renderTable();
+    loadScreen();
 }
 
 function showLosers() {
@@ -83,9 +151,11 @@ function showLosers() {
     document.getElementById('btn-losers').classList.add('active');
     document.getElementById('btn-gainers').classList.remove('active');
     renderTable();
+    loadScreen();
 }
 
 loadTrending();
-setInterval(loadTrending, 30000);
+loadScreen();
+setInterval(() => { loadTrending(); loadScreen(); }, 30000);
 </script>
 {% endblock %}

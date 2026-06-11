@@ -358,6 +358,89 @@ async def api_trending():
     return {"trending": coins}
 
 
+@app.get("/api/screen")
+async def api_screen(limit: int = 10, sort: str = "gainers"):
+    try:
+        from client.rest import TokocryptoClient
+        client = TokocryptoClient()
+        tickers = client.get_ticker_24hr()
+    except Exception as e:
+        logger.warning(f"Screen fetch failed: {e}")
+        return {"screen": []}
+
+    coins = []
+    for t in tickers:
+        sym = t.get("symbol", "")
+        if not sym.endswith("IDR"):
+            continue
+        price = float(t.get("lastPrice", 0))
+        change_pct = float(t.get("priceChangePercent", 0))
+        volume = float(t.get("volume", 0))
+        if price <= 0:
+            continue
+        toko_sym = sym[:-3] + "_" + sym[-3:]
+        coins.append({"symbol": sym, "toko_symbol": toko_sym, "price": price, "change_pct": change_pct, "volume": volume})
+
+    coins.sort(key=lambda x: x["change_pct"], reverse=(sort == "gainers"))
+    coins = coins[:limit]
+
+    import numpy as np
+
+    def compute_rsi(closes, period=14):
+        if len(closes) < period + 1:
+            return 50.0
+        deltas = np.diff(closes[-period - 1:])
+        gains = np.where(deltas > 0, deltas, 0)
+        losses = np.where(deltas < 0, -deltas, 0)
+        avg_gain = float(np.mean(gains))
+        avg_loss = float(np.mean(losses))
+        if avg_loss == 0:
+            return 100.0
+        return 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
+
+    results = []
+    for c in coins:
+        try:
+            klines = client.get_klines(c["toko_symbol"], interval="1h", limit=100)
+            if len(klines) < 21:
+                continue
+            closes = [k.close for k in klines]
+            rsi = round(compute_rsi(closes), 1)
+            fast_ma = round(float(np.mean(closes[-9:])), 2)
+            slow_ma = round(float(np.mean(closes[-21:])), 2)
+            ma_bullish = fast_ma > slow_ma
+            avg_vol = float(np.mean([k.volume for k in klines]))
+            vol_surge = round(c["volume"] / avg_vol, 1) if avg_vol > 0 else 0
+            signals = []
+            if rsi < 35:
+                signals.append("RSI oversold")
+            elif rsi > 65:
+                signals.append("RSI overbought")
+            if ma_bullish:
+                signals.append("MA bullish")
+            else:
+                signals.append("MA bearish")
+            if vol_surge > 2:
+                signals.append("Vol surge")
+            results.append({
+                "symbol": c["symbol"],
+                "price": round(c["price"], 2),
+                "change_pct": round(c["change_pct"], 2),
+                "rsi": rsi,
+                "ma_fast": fast_ma,
+                "ma_slow": slow_ma,
+                "ma_bullish": ma_bullish,
+                "volume": round(c["volume"], 2),
+                "vol_surge": vol_surge,
+                "signals": signals,
+            })
+        except Exception as e:
+            logger.warning(f"Screen {c['symbol']} failed: {e}")
+            continue
+
+    return {"screen": results}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
