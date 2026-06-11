@@ -52,6 +52,12 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+from fastapi.responses import RedirectResponse
+@app.get("/favicon.ico")
+async def favicon():
+    return RedirectResponse(url="/static/favicon.svg")
+
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.globals["cfg"] = cfg
 
