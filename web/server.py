@@ -197,13 +197,33 @@ async def api_active_orders():
         
         result = []
         for b in balances:
-            if b.asset in ("IDR", "USDT", "TKO") or b.free <= 0:
+            if b.asset in ("IDR", "TKO") or b.free <= 0:
                 continue
+            
             sym = f"{b.asset}_IDR"
             price_key = f"{b.asset}IDR"
             cp = prices.get(price_key, 0)
+
+            # Try to find price for USDT if direct IDR price not found
+            if cp == 0 and b.asset == "USDT":
+                usdt_price = prices.get("USDTIDR", 0) or prices.get("USDTBIDR", 0)
+                if usdt_price > 0:
+                    cp = usdt_price
+                    # Assuming 1 USDT = 1 USD for simplicity in this context
+                    # A more robust solution would involve a USDT/IDR rate if available
+                    # For now, we use USDT price as proxy for USD value estimation if needed
+
+            # If still no price found, try searching ticker keys dynamically for the asset
+            if cp == 0:
+                for p_key, p_val in prices.items():
+                    if b.asset.lower() in p_key.lower() and 'IDR' in p_key.upper():
+                        cp = p_val
+                        sym = p_key # Use the actual symbol from the ticker
+                        break
+
             if cp == 0:
                 continue
+
             result.append({
                 "symbol": sym,
                 "side": "BUY",
