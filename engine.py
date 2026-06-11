@@ -12,19 +12,16 @@ from client.rest import TokocryptoClient
 from client.ws import TokocryptoWebSocket
 from risk import RiskManager
 from signal_manager import SignalManager
-from strategies.ma_cross import MACrossoverStrategy
-from strategies.rsi import RSIStrategy
-from strategies.grid import GridStrategy
+from strategies.scalp import ScalpStrategy
 from db import init_db, init_risk_settings, add_log, get_active_positions, remove_position
 from models import AccountBalance
+
 
 logger = logging.getLogger("tokobot.engine")
 
 
 STRATEGY_MAP = {
-    "ma_cross": MACrossoverStrategy,
-    "rsi": RSIStrategy,
-    "grid": GridStrategy,
+    "scalp": ScalpStrategy,
 }
 
 
@@ -119,11 +116,11 @@ class TradingEngine:
                 continue
             self.strategies[symbol][sname] = cls(symbol, config.BOT_INTERVAL)
         try:
-            klines = self.client.get_klines(symbol, config.BOT_INTERVAL, limit=100)
+            klines = self.client.get_klines(symbol, "1m", limit=100)
             if klines:
                 for s in self.strategies[symbol].values():
                     s.update_klines(klines)
-            self._pending_ws_streams.append(f"{symbol.replace('_', '').lower()}@kline_{config.BOT_INTERVAL}")
+            self._pending_ws_streams.append(f"{symbol.replace('_', '').lower()}@kline_1m")
             self._pending_ws_streams.append(f"{symbol.replace('_', '').lower()}@aggTrade")
         except Exception:
             pass
@@ -153,7 +150,7 @@ class TradingEngine:
         symbols = self._get_dynamic_symbols()
         for symbol in symbols:
             try:
-                klines = self.client.get_klines(symbol, config.BOT_INTERVAL, limit=100)
+                klines = self.client.get_klines(symbol, "1m", limit=100)
                 strategies = self.strategies.get(symbol, {})
                 if strategies and klines:
                     for sname, strategy in strategies.items():
@@ -350,7 +347,7 @@ class TradingEngine:
         ws_streams = []
         for symbol in symbols:
             ws_sym = symbol.replace("_", "").lower()
-            ws_streams.append(f"{ws_sym}@kline_{config.BOT_INTERVAL}")
+            ws_streams.append(f"{ws_sym}@kline_1m")
             ws_streams.append(f"{ws_sym}@aggTrade")
 
         self.ws.on_message(self.on_ws_message)

@@ -16,7 +16,7 @@ class Config:
     BOT_STRATEGY = os.getenv("BOT_STRATEGY", "ma_cross")
     BOT_STRATEGIES = [s.strip() for s in os.getenv("BOT_STRATEGIES", "ma_cross").split(",")]
     BOT_SYMBOLS = [s.strip() for s in os.getenv("BOT_SYMBOLS", "BTC_IDR").split(",")]
-    BOT_INTERVAL = os.getenv("BOT_INTERVAL", "1m")
+    BOT_INTERVAL = "1m"
 
     # Risk
     RISK_PER_TRADE = float(os.getenv("RISK_PER_TRADE", "1.0"))
