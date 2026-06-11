@@ -5,7 +5,7 @@ async function loadTrades() {
     const strategy = document.getElementById('filter-strategy').value;
     const side = document.getElementById('filter-side').value;
 
-    let url = '/api/trades?limit=200&sync=1';
+    let url = '/api/trades?limit=200';
     if (symbol) url += `&symbol=${symbol}`;
     if (strategy) url += `&strategy=${strategy}`;
     if (side) url += `&side=${side}`;

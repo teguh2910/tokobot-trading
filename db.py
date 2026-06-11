@@ -335,7 +335,17 @@ def get_trade_history(limit: int = 100, symbol: str = "", strategy: str = "", si
     return [dict(r) for r in rows]
 
 
-def sync_trades_db():
+_last_sync = 0.0
+
+
+def sync_trades_db(force: bool = False):
+    global _last_sync
+    import time
+    now = time.time()
+    if not force and now - _last_sync < 60:
+        return
+    _last_sync = now
+
     conn = get_conn()
     cur = conn.cursor()
     from client.rest import TokocryptoClient
