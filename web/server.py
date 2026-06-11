@@ -177,7 +177,7 @@ async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit
     if sync:
         try:
             from db import sync_trades_db
-        sync_trades_db(force=True)
+            sync_trades_db(force=True)
         except Exception as e:
             logger.warning(f"sync on trades fetch failed: {e}")
     trades = get_trade_history(limit=limit, symbol=symbol, strategy=strategy, side=side)
@@ -188,24 +188,33 @@ async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit
 
 @app.get("/api/orders/active")
 async def api_active_orders():
-    positions = get_active_positions()
     try:
         from client.rest import TokocryptoClient
-        prices = TokocryptoClient().get_ticker()
+        client = TokocryptoClient()
+        balances = client.get_account_info()[0]
+        prices = client.get_ticker()
     except Exception:
-        prices = {}
+        return {"orders": []}
+
     result = []
-    for p in positions:
-        sym = p.symbol.replace("_", "")
-        cp = prices.get(sym, 0) or p.entry_price
-        p.current_price = cp
+    for b in balances:
+        if b.asset in ("IDR", "USDT", "TKO") or b.free <= 0:
+            continue
+        sym = f"{b.asset}_IDR"
+        cp = prices.get(b.asset, 0)
+        if cp == 0:
+            continue
         result.append({
-            "symbol": p.symbol, "side": p.side,
-            "price": p.entry_price, "qty": p.quantity,
+            "symbol": sym,
+            "side": "BUY",
+            "price": 0,
+            "qty": round(b.free, 6),
             "current_price": cp,
-            "stop_loss": p.stop_loss, "take_profit": p.take_profit,
-            "pnl": round(p.pnl, 2), "open_time": p.open_time,
-            "strategy": p.strategy,
+            "stop_loss": 0,
+            "take_profit": 0,
+            "pnl": 0,
+            "open_time": 0,
+            "strategy": "exchange",
         })
     return {"orders": result}
 
