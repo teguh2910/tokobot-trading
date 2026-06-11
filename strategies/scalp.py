@@ -10,7 +10,10 @@ class ScalpStrategy(Strategy):
         self.rsi_period = 7
         self.prev_rsi = 50.0
         self.last_signal = ""
-        self.in_position = False
+        self.entry_price = 0
+        self.entry_time = 0
+        self.tp_pct = 0.5
+        self.max_candles = 10
 
     def _compute_rsi(self, closes, period=7):
         if len(closes) < period + 1:
@@ -38,8 +41,53 @@ class ScalpStrategy(Strategy):
 
         signal = None
 
-        if vol_surge > 1.5 and rsi < 65 and self.prev_rsi <= rsi and not self.in_position:
+        if self.entry_price > 0:
+            pnl_pct = (current_price / self.entry_price - 1) * 100
+            candles_since_entry = len(self.klines) - self.entry_time
+
+            if pnl_pct >= self.tp_pct:
+                self.reset()
+                signal = BotSignal(
+                    symbol=self.symbol,
+                    action="SELL",
+                    price=current_price,
+                    quantity=0,
+                    strategy=self.name,
+                    timestamp=int(self.klines[-1].close_time),
+                    reason=f"TP {pnl_pct:.2f}%"
+                )
+                return signal
+
+            if rsi > 70:
+                self.reset()
+                signal = BotSignal(
+                    symbol=self.symbol,
+                    action="SELL",
+                    price=current_price,
+                    quantity=0,
+                    strategy=self.name,
+                    timestamp=int(self.klines[-1].close_time),
+                    reason=f"RSI overbought {rsi:.1f}"
+                )
+                return signal
+
+            if candles_since_entry >= self.max_candles:
+                self.reset()
+                signal = BotSignal(
+                    symbol=self.symbol,
+                    action="SELL",
+                    price=current_price,
+                    quantity=0,
+                    strategy=self.name,
+                    timestamp=int(self.klines[-1].close_time),
+                    reason=f"Time exit {candles_since_entry}c"
+                )
+                return signal
+
+        elif vol_surge > 1.5 and rsi < 65 and self.prev_rsi <= rsi and self.last_signal != "BUY":
             self.last_signal = "BUY"
+            self.entry_price = current_price
+            self.entry_time = len(self.klines)
             signal = BotSignal(
                 symbol=self.symbol,
                 action="BUY",
@@ -64,4 +112,5 @@ class ScalpStrategy(Strategy):
         self.klines = []
         self.prev_rsi = 50.0
         self.last_signal = ""
-        self.in_position = False
+        self.entry_price = 0
+        self.entry_time = 0
