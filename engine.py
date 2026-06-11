@@ -46,9 +46,6 @@ class TradingEngine:
         self.stop()
         sys.exit(0)
 
-    def _get_dynamic_symbols(self) -> list:
-        return getattr(self, '_bullish_symbols', None) or config.BOT_SYMBOLS
-
     def _auto_screen_bullish(self) -> list:
         try:
             tickers = self.client.get_ticker_24hr()
@@ -133,7 +130,7 @@ class TradingEngine:
             self._pending_ws_streams = []
 
     def init_strategies(self):
-        symbols = self._get_dynamic_symbols()
+        symbols = config.BOT_SYMBOLS
         active = config.BOT_STRATEGIES
         for symbol in symbols:
             self.strategies[symbol] = {}
@@ -147,7 +144,7 @@ class TradingEngine:
             logger.info(f"Initialized strategies [{names}] for {symbol}")
 
     def preload_klines(self):
-        symbols = self._get_dynamic_symbols()
+        symbols = config.BOT_SYMBOLS
         for symbol in symbols:
             try:
                 klines = self.client.get_klines(symbol, "1m", limit=100)
@@ -334,14 +331,16 @@ class TradingEngine:
         init_db()
         init_risk_settings()
 
-        self.init_strategies()
-        self.preload_klines()
-
         bullish = self._auto_screen_bullish()
         if bullish:
             self._bullish_symbols = bullish
             self._sync_selected_file(bullish)
-        symbols = self._get_dynamic_symbols()
+            config.BOT_SYMBOLS = bullish
+
+        symbols = config.BOT_SYMBOLS
+        self.init_strategies()
+        self.preload_klines()
+
         logger.info(f"Starting bot in {config.BOT_MODE.upper()} mode | Strategies: {config.BOT_STRATEGIES} | Symbols: {symbols}")
 
         ws_streams = []
@@ -376,8 +375,9 @@ class TradingEngine:
                     if bullish:
                         self._bullish_symbols = bullish
                         self._sync_selected_file(bullish)
+                        config.BOT_SYMBOLS = bullish
 
-                    active = self._get_dynamic_symbols()
+                    active = config.BOT_SYMBOLS
                     for sym in active:
                         if sym not in self.strategies:
                             self._add_symbol(sym)
@@ -386,8 +386,6 @@ class TradingEngine:
                     positions = get_active_positions()
                     pos_syms = {p.symbol for p in positions}
                     for sym in list(self.strategies.keys()):
-                        if sym in config.BOT_SYMBOLS:
-                            continue
                         if sym not in active and sym not in pos_syms:
                             logger.info(f"[Auto] Removing {sym} from strategies")
                             del self.strategies[sym]
