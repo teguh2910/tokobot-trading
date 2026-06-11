@@ -303,7 +303,7 @@ class TokocryptoClient:
                 commission_asset=r.get("commissionAsset", ""),
                 is_buyer=r.get("isBuyer", 0) == 1,
                 is_maker=r.get("isMaker", 0) == 1,
-                time=r.get("time", 0)
+                time=int(r.get("time", 0))
             )
             for r in raw_list
         ]

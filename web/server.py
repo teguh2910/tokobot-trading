@@ -186,8 +186,8 @@ async def api_trades(symbol: str = "", strategy: str = "", side: str = "", limit
                             "quote_qty": t.quote_qty,
                             "commission": t.commission,
                             "commission_asset": t.commission_asset,
-                            "trade_time": t.time,
-                            "trade_time_str": datetime.fromtimestamp(t.time / 1000).strftime("%Y-%m-%d %H:%M:%S"),
+                            "trade_time": int(t.time),
+                            "trade_time_str": datetime.fromtimestamp(int(t.time) / 1000).strftime("%Y-%m-%d %H:%M:%S"),
                         })
                 except Exception as e:
                     logger.warning(f"Sync trades {sym}: {e}")
