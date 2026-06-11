@@ -97,13 +97,18 @@ class TradingEngine:
 
             strategies = self.strategies.get(toko_symbol, {})
             if strategies and k.get("x", False):
+                signal_count = 0
                 for sname, strategy in strategies.items():
                     try:
                         signal = strategy.on_kline(kline)
                         if signal:
+                            signal_count += 1
                             self._process_signal(signal)
                     except Exception as e:
                         logger.error(f"Strategy {sname} error for {toko_symbol}: {e}")
+                if signal_count == 0:
+                    logger.info(f"[{toko_symbol}] Candle closed: {len(strategies)} strategies analyzed, no signal")
+                    add_log("DEBUG", f"[{toko_symbol}] {len(strategies)} strategies analyzed, no signal")
 
             self._check_positions(toko_symbol, kline.close)
 
@@ -237,9 +242,15 @@ class TradingEngine:
         self.running = True
         add_log("INFO", f"Bot started: {config.BOT_MODE.upper()} mode, strategies={','.join(config.BOT_STRATEGIES)}")
 
+        heartbeat = 0
         while self.running:
             try:
                 self._save_equity_periodic()
+                heartbeat += 1
+                if heartbeat % 2 == 0:
+                    positions = get_active_positions()
+                    logger.info(f"♥ Bot LIVE | {len(config.BOT_SYMBOLS)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
+                    add_log("INFO", f"Bot LIVE | {len(config.BOT_SYMBOLS)} symbols × {len(config.BOT_STRATEGIES)} strategies | {len(positions)} active positions")
                 time.sleep(30)
             except KeyboardInterrupt:
                 break
