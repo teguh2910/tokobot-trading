@@ -52,6 +52,8 @@ async function loadDashboard() {
                 <td>${p.entry_price.toFixed(0)}</td>
                 <td>${(p.current_price || 0).toFixed(0)}</td>
                 <td>${p.quantity.toFixed(4)}</td>
+                <td class="text-danger">${p.stop_loss.toFixed(0)}</td>
+                <td class="text-success">${p.take_profit.toFixed(0)}</td>
                 <td class="${pnlClass}">${p.pnl.toFixed(2)} (${p.pnl_pct.toFixed(2)}%)</td>
             </tr>`;
         });
