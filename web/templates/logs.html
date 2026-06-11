@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-terminal"></i> Bot Logs</h2>
+    <button class="btn btn-sm btn-outline-primary" onclick="loadLogs()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="log-container p-3" id="log-container" style="max-height: 70vh; overflow-y: auto; font-family: monospace; font-size: 0.85rem;">
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadLogs() {
+    const res = await fetch('/api/logs?limit=200');
+    const data = await res.json();
+    const container = document.getElementById('log-container');
+    container.innerHTML = '';
+    data.logs.reverse().forEach(log => {
+        const levelClass = log.level === 'ERROR' ? 'text-danger' : log.level === 'WARN' ? 'text-warning' : 'text-success';
+        container.innerHTML += `<div><span class="text-muted">[${log.time_str}]</span> <span class="${levelClass}">[${log.level}]</span> ${log.message}</div>`;
+    });
+    container.scrollTop = container.scrollHeight;
+}
+
+loadLogs();
+setInterval(loadLogs, 5000);
+</script>
+{% endblock %}

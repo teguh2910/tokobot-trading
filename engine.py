@@ -1,0 +1,254 @@
+import logging
+import time
+import signal
+import sys
+from typing import Dict, Optional
+from datetime import datetime, timezone
+from config import config
+from models import Kline, BotSignal, Position
+from client.rest import TokocryptoClient
+from client.ws import TokocryptoWebSocket
+from risk import RiskManager
+from signal_manager import SignalManager
+from strategies.ma_cross import MACrossoverStrategy
+from strategies.rsi import RSIStrategy
+from strategies.grid import GridStrategy
+from db import init_db, init_risk_settings, add_log, get_active_positions
+from models import AccountBalance
+
+logger = logging.getLogger("tokobot.engine")
+
+
+STRATEGY_MAP = {
+    "ma_cross": MACrossoverStrategy,
+    "rsi": RSIStrategy,
+    "grid": GridStrategy,
+}
+
+
+class TradingEngine:
+    def __init__(self):
+        self.client = TokocryptoClient()
+        self.ws = TokocryptoWebSocket()
+        self.risk = RiskManager()
+        self.signal_manager = SignalManager(self.client, self.risk)
+
+        self.strategies: Dict[str, Dict[str, object]] = {}
+        self.running = False
+        self.last_equity_save = 0
+        self.symbol_prices: Dict[str, float] = {}
+
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+
+    def _signal_handler(self, sig, frame):
+        logger.info("Shutdown signal received")
+        self.stop()
+        sys.exit(0)
+
+    def init_strategies(self):
+        active = config.BOT_STRATEGIES
+        for symbol in config.BOT_SYMBOLS:
+            self.strategies[symbol] = {}
+            for sname in active:
+                cls = STRATEGY_MAP.get(sname)
+                if not cls:
+                    logger.error(f"Unknown strategy: {sname}")
+                    continue
+                self.strategies[symbol][sname] = cls(symbol, config.BOT_INTERVAL)
+            names = ", ".join(self.strategies[symbol].keys())
+            logger.info(f"Initialized strategies [{names}] for {symbol}")
+
+    def preload_klines(self):
+        for symbol in config.BOT_SYMBOLS:
+            try:
+                klines = self.client.get_klines(symbol, config.BOT_INTERVAL, limit=100)
+                strategies = self.strategies.get(symbol, {})
+                if strategies and klines:
+                    for sname, strategy in strategies.items():
+                        strategy.update_klines(klines)
+                    logger.info(f"Preloaded {len(klines)} klines for {symbol} ({len(strategies)} strategies)")
+            except Exception as e:
+                logger.error(f"Failed to preload klines for {symbol}: {e}")
+
+    def on_ws_message(self, data: dict):
+        event_type = data.get("e", "")
+
+        if event_type == "kline":
+            k = data.get("k", {})
+            symbol = k.get("s", "")
+            toko_symbol = self._to_toko_symbol(symbol)
+
+            kline = Kline(
+                open_time=k["t"],
+                open=float(k["o"]),
+                high=float(k["h"]),
+                low=float(k["l"]),
+                close=float(k["c"]),
+                volume=float(k["v"]),
+                close_time=k["T"],
+                quote_volume=float(k.get("q", 0)),
+                trades=k.get("n", 0),
+                taker_buy_base=float(k.get("V", 0)),
+                taker_buy_quote=float(k.get("Q", 0)),
+            )
+
+            self.symbol_prices[toko_symbol] = kline.close
+
+            strategies = self.strategies.get(toko_symbol, {})
+            if strategies and k.get("x", False):
+                for sname, strategy in strategies.items():
+                    try:
+                        signal = strategy.on_kline(kline)
+                        if signal:
+                            self._process_signal(signal)
+                    except Exception as e:
+                        logger.error(f"Strategy {sname} error for {toko_symbol}: {e}")
+
+            self._check_positions(toko_symbol, kline.close)
+
+        elif event_type == "aggTrade":
+            symbol = data.get("s", "")
+            toko_symbol = self._to_toko_symbol(symbol)
+            self.symbol_prices[toko_symbol] = float(data["p"])
+
+        elif event_type == "executionReport":
+            self._handle_execution_report(data)
+
+        elif event_type == "outboundAccountPosition":
+            self._handle_account_update(data)
+
+    def _to_toko_symbol(self, ws_symbol: str) -> str:
+        for sym in config.BOT_SYMBOLS:
+            if ws_symbol.upper() == sym.replace("_", ""):
+                return sym
+        return ws_symbol
+
+    def _process_signal(self, signal: BotSignal):
+        can_trade, reason = self.risk.can_trade(signal.strategy, signal.symbol, signal.action)
+        if not can_trade:
+            logger.info(f"Signal blocked: {reason}")
+            return
+
+        balance = self._get_balance_for_symbol(signal.symbol, signal.action)
+        settings = self.risk.get_risk_settings(signal.strategy)
+        risk_amount = balance * (settings.get("risk_per_trade", 1.0) / 100)
+        signal.quantity = risk_amount / signal.price if signal.price > 0 else 0
+
+        if signal.quantity <= 0:
+            logger.warning(f"Invalid quantity for {signal.symbol}: {signal.quantity}")
+            return
+
+        if signal.stop_loss == 0:
+            sl, tp = self.risk.calculate_sl_tp(signal.strategy, signal.action, signal.price)
+            signal.stop_loss = sl
+            signal.take_profit = tp
+
+        order = self.signal_manager.execute_signal(signal)
+        if order:
+            logger.info(f"Signal executed: {signal.action} {signal.symbol} qty={signal.quantity:.4f} SL={signal.stop_loss:.2f} TP={signal.take_profit:.2f}")
+
+    def _check_positions(self, symbol: str, current_price: float):
+        positions = get_active_positions()
+        for pos in positions:
+            if pos.symbol != symbol:
+                continue
+            pos.current_price = current_price
+            result = self.risk.check_sl_tp(pos, current_price)
+            if result:
+                logger.info(f"{result} for {pos.symbol} {pos.side} @ {current_price}")
+                self.signal_manager.close_position(pos, result)
+                add_log("INFO", f"{result}: {pos.symbol} {pos.side} @ {current_price}")
+
+    def _handle_execution_report(self, data: dict):
+        symbol = data.get("s", "")
+        exec_type = data.get("x", "")
+        order_status = data.get("X", "")
+        order_id = str(data.get("i", ""))
+
+        if exec_type == "TRADE" and order_status == "FILLED":
+            side = "BUY" if data.get("S") == "BUY" else "SELL"
+            price = float(data.get("L", 0))
+            qty = float(data.get("l", 0))
+            logger.info(f"Order FILLED: {side} {symbol} {qty} @ {price}")
+
+        if exec_type == "CANCELED":
+            logger.info(f"Order CANCELED: {symbol} id={order_id}")
+
+    def _handle_account_update(self, data: dict):
+        balances = data.get("B", [])
+        for b in balances:
+            asset = b.get("a", "")
+            free = float(b.get("f", 0))
+            locked = float(b.get("l", 0))
+            logger.debug(f"Balance update: {asset} free={free} locked={locked}")
+
+    def _get_balance_for_symbol(self, symbol: str, side: str) -> float:
+        try:
+            base, quote = symbol.split("_")
+            target = base if side == "SELL" else quote
+            balance = self.client.get_asset_balance(target)
+            return balance.free if balance else 0
+        except Exception as e:
+            logger.warning(f"Failed to get balance: {e}")
+            return 1000000
+
+    def _save_equity_periodic(self):
+        now = int(time.time())
+        if now - self.last_equity_save < 60:
+            return
+        self.last_equity_save = now
+
+        try:
+            balances, _ = self.client.get_account_info()
+            total = sum(b.free + b.locked for b in balances)
+            self.risk.set_balance(total)
+            self.risk.record_equity(total, total)
+        except Exception as e:
+            logger.debug(f"Equity save skipped: {e}")
+
+    def start(self):
+        init_db()
+        init_risk_settings()
+
+        self.init_strategies()
+        self.preload_klines()
+
+        logger.info(f"Starting bot in {config.BOT_MODE.upper()} mode | Strategies: {config.BOT_STRATEGIES} | Symbols: {config.BOT_SYMBOLS}")
+
+        ws_streams = []
+        for symbol in config.BOT_SYMBOLS:
+            ws_sym = symbol.replace("_", "").lower()
+            ws_streams.append(f"{ws_sym}@kline_{config.BOT_INTERVAL}")
+            ws_streams.append(f"{ws_sym}@aggTrade")
+
+        self.ws.on_message(self.on_ws_message)
+        self.ws.connect(ws_streams)
+
+        if config.BOT_MODE == "live":
+            try:
+                listen_key = self.client.create_listen_key()
+                if listen_key:
+                    self.ws.subscribe_user_data(listen_key)
+                    logger.info("User data stream connected")
+            except Exception as e:
+                logger.warning(f"Failed to create listen key: {e}")
+
+        self.running = True
+        add_log("INFO", f"Bot started: {config.BOT_MODE.upper()} mode, strategies={','.join(config.BOT_STRATEGIES)}")
+
+        while self.running:
+            try:
+                self._save_equity_periodic()
+                time.sleep(30)
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                logger.error(f"Engine loop error: {e}")
+                time.sleep(5)
+
+    def stop(self):
+        logger.info("Stopping bot engine...")
+        self.running = False
+        self.ws.close()
+        add_log("INFO", "Bot stopped")

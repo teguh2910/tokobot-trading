@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-sliders"></i> Strategy & Risk Settings</h2>
+</div>
+
+<div class="row g-3">
+    {% for s in strategies %}
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-gear"></i> {{ s.upper() }}</span>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="enabled-{{ s }}" checked onchange="saveSettings('{{ s }}')">
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label small">Risk per Trade (%)</label>
+                    <input type="number" class="form-control form-control-sm" id="risk_per_trade-{{ s }}" step="0.1" value="1.0" onchange="saveSettings('{{ s }}')">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Risk:Reward Ratio</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control" id="rr_num-{{ s }}" value="1" min="1" onchange="saveSettings('{{ s }}')">
+                        <span class="input-group-text">:</span>
+                        <input type="number" class="form-control" id="rr_den-{{ s }}" value="2" min="1" onchange="saveSettings('{{ s }}')">
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Stop Loss Type</label>
+                    <select class="form-select form-select-sm" id="sl_type-{{ s }}" onchange="saveSettings('{{ s }}')">
+                        <option value="fixed">Fixed %</option>
+                        <option value="atr">ATR</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Stop Loss (%)</label>
+                    <input type="number" class="form-control form-control-sm" id="sl_value-{{ s }}" step="0.1" value="1.0" onchange="saveSettings('{{ s }}')">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Take Profit (%)</label>
+                    <input type="number" class="form-control form-control-sm" id="tp_value-{{ s }}" step="0.1" value="2.0" onchange="saveSettings('{{ s }}')">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Max Daily Loss (%)</label>
+                    <input type="number" class="form-control form-control-sm" id="max_daily_loss-{{ s }}" step="0.1" value="5.0" onchange="saveSettings('{{ s }}')">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Max Open Positions</label>
+                    <input type="number" class="form-control form-control-sm" id="max_open_positions-{{ s }}" min="1" value="3" onchange="saveSettings('{{ s }}')">
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="mt-3">
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        <strong>Risk/Reward Ratio:</strong> SL/TP dihitung otomatis berdasarkan entry price + risk:reward ratio.
+        Contoh: risk 1% dengan R:R 1:2 berarti TP = 2%.
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadSettings(strategy) {
+    const res = await fetch(`/api/strategy/${strategy}`);
+    const data = await res.json();
+    const s = data.settings || {};
+    if (!s) return;
+
+    document.getElementById(`risk_per_trade-${strategy}`).value = s.risk_per_trade || 1.0;
+    document.getElementById(`rr_num-${strategy}`).value = s.reward_ratio_num || 1;
+    document.getElementById(`rr_den-${strategy}`).value = s.reward_ratio_den || 2;
+    document.getElementById(`sl_type-${strategy}`).value = s.sl_type || 'fixed';
+    document.getElementById(`sl_value-${strategy}`).value = s.sl_value || 1.0;
+    document.getElementById(`tp_value-${strategy}`).value = s.tp_value || 2.0;
+    document.getElementById(`max_daily_loss-${strategy}`).value = s.max_daily_loss || 5.0;
+    document.getElementById(`max_open_positions-${strategy}`).value = s.max_open_positions || 3;
+    document.getElementById(`enabled-${strategy}`).checked = s.enabled !== 0;
+}
+
+async function saveSettings(strategy) {
+    const data = {
+        risk_per_trade: parseFloat(document.getElementById(`risk_per_trade-${strategy}`).value) || 1.0,
+        reward_ratio_num: parseInt(document.getElementById(`rr_num-${strategy}`).value) || 1,
+        reward_ratio_den: parseInt(document.getElementById(`rr_den-${strategy}`).value) || 2,
+        sl_type: document.getElementById(`sl_type-${strategy}`).value,
+        sl_value: parseFloat(document.getElementById(`sl_value-${strategy}`).value) || 1.0,
+        tp_value: parseFloat(document.getElementById(`tp_value-${strategy}`).value) || 2.0,
+        max_daily_loss: parseFloat(document.getElementById(`max_daily_loss-${strategy}`).value) || 5.0,
+        max_open_positions: parseInt(document.getElementById(`max_open_positions-${strategy}`).value) || 3,
+        enabled: document.getElementById(`enabled-${strategy}`).checked,
+    };
+    await fetch(`/api/strategy/${strategy}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data),
+    });
+}
+
+{% for s in strategies %}
+loadSettings('{{ s }}');
+{% endfor %}
+</script>
+{% endblock %}

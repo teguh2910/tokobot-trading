@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid px-0">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4><i class="bi bi-wallet2"></i> Portfolio</h4>
+        <span class="text-muted small" id="last-update"></span>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card bg-dark border-secondary h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Total Portfolio Value</div>
+                    <div class="display-5 fw-bold" id="total-value">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark border-secondary h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">BTC/IDR</div>
+                    <div class="fs-3 fw-bold" id="btc-price">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark border-secondary h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">USDT/IDR</div>
+                    <div class="fs-3 fw-bold" id="usdt-price">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-5">
+            <div class="card bg-dark border-secondary h-100">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-pie-chart"></i> Allocation</h6>
+                    <div style="position:relative;height:260px">
+                        <canvas id="allocationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-7">
+            <div class="card bg-dark border-secondary h-100">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-table"></i> Asset Breakdown</h6>
+                    <div class="table-responsive" style="max-height:400px;overflow-y:auto">
+                        <table class="table table-sm table-dark table-hover" id="portfolio-table">
+                            <thead>
+                                <tr>
+                                    <th>Asset</th>
+                                    <th class="text-end">Balance</th>
+                                    <th class="text-end">Price (IDR)</th>
+                                    <th class="text-end">Value (IDR)</th>
+                                    <th class="text-end">%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="portfolio-body">
+                                <tr><td colspan="5" class="text-muted text-center">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-2">
+        <div class="col-12">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-graph-up"></i> Equity History</h6>
+                    <div style="position:relative;height:250px">
+                        <canvas id="equityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const COLORS = [
+    '#0d6efd','#dc3545','#198754','#ffc107','#6f42c1',
+    '#20c997','#fd7e14','#d63384','#0dcaf0','#adb5bd',
+    '#6610f2','#e83e8c','#ff851b','#b5cf18','#17a2b8',
+];
+
+async function loadPortfolio() {
+    try {
+        const resp = await fetch('/api/portfolio');
+        const data = await resp.json();
+        const pf = data.portfolio;
+        const total = data.total_idr;
+
+        document.getElementById('total-value').textContent =
+            total > 0 ? 'Rp ' + total.toLocaleString('id-ID', {minimumFractionDigits:2}) : 'Rp 0';
+        document.getElementById('btc-price').textContent =
+            data.btc_idr > 0 ? 'Rp ' + Number(data.btc_idr).toLocaleString('id-ID') : '—';
+        document.getElementById('usdt-price').textContent =
+            data.usdt_idr > 0 ? 'Rp ' + Number(data.usdt_idr).toLocaleString('id-ID') : '—';
+        document.getElementById('last-update').textContent =
+            'Updated: ' + new Date().toLocaleTimeString('id-ID');
+
+        const tbody = document.getElementById('portfolio-body');
+        tbody.innerHTML = pf.map((item, i) => {
+            const color = COLORS[i % COLORS.length];
+            return `<tr>
+                <td><span class="badge" style="background:${color}">${item.asset}</span></td>
+                <td class="text-end text-monospace">${item.total}</td>
+                <td class="text-end text-monospace">${item.price_idr > 0 ? 'Rp ' + Number(item.price_idr).toLocaleString('id-ID', {minimumFractionDigits:2}) : '—'}</td>
+                <td class="text-end text-monospace">Rp ${Number(item.value_idr).toLocaleString('id-ID', {minimumFractionDigits:2})}</td>
+                <td class="text-end text-monospace">${item.pct}%</td>
+            </tr>`;
+        }).join('');
+
+        drawAllocation(pf, total);
+        drawEquity(data.equity || []);
+    } catch (e) {
+        document.getElementById('portfolio-body').innerHTML =
+            '<tr><td colspan="5" class="text-danger text-center">Failed to load portfolio</td></tr>';
+    }
+}
+
+let allocChart = null;
+function drawAllocation(items, total) {
+    const ctx = document.getElementById('allocationChart').getContext('2d');
+    if (allocChart) allocChart.destroy();
+
+    const labels = items.map(i => i.asset);
+    const values = items.map(i => i.value_idr);
+    const bg = items.map((_, i) => COLORS[i % COLORS.length]);
+
+    if (values.length === 0 || values.every(v => v === 0)) {
+        allocChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {labels: ['No Data'], datasets: [{data: [1], backgroundColor: ['#374151']}]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {legend: {display: false}}
+            }
+        });
+        return;
+    }
+
+    allocChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {labels, datasets: [{data: values, backgroundColor: bg, borderWidth: 2, borderColor: '#1a1d23'}]},
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {color: '#ccc', padding: 12, boxWidth: 12, usePointStyle: true},
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const val = ctx.parsed;
+                            const pct = total > 0 ? ((val / total) * 100).toFixed(2) : '0.00';
+                            return ctx.label + ': Rp ' + Number(val).toLocaleString('id-ID', {minimumFractionDigits:2}) + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+let equityChart = null;
+function drawEquity(equity) {
+    const ctx = document.getElementById('equityChart').getContext('2d');
+    if (equityChart) equityChart.destroy();
+
+    if (!equity.length) {
+        equityChart = new Chart(ctx, {
+            type: 'line',
+            data: {labels: [], datasets: [{data: [], borderColor: '#0d6efd', fill: false}]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {legend: {display: false}}
+            }
+        });
+        return;
+    }
+
+    equityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: equity.map(e => new Date(e.timestamp).toLocaleDateString('id-ID')),
+            datasets: [{
+                label: 'Equity',
+                data: equity.map(e => e.equity),
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13,110,253,0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {labels: {color: '#ccc'}},
+            },
+            scales: {
+                x: {ticks: {color: '#888', maxTicksLimit: 8}, grid: {color: '#333'}},
+                y: {ticks: {color: '#888'}, grid: {color: '#333'}},
+            }
+        }
+    });
+}
+
+loadPortfolio();
+setInterval(loadPortfolio, 30000);
+</script>
+{% endblock %}

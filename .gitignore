@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+logs/
+trading_bot.db
+*.db
+.DS_Store
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
