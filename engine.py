@@ -264,6 +264,30 @@ class TradingEngine:
             if pos.symbol != symbol:
                 continue
             pos.current_price = current_price
+
+            pnl_pct = (current_price / pos.entry_price - 1) * 100
+            age_m = (int(time.time() * 1000) - pos.open_time) / 60000 if pos.open_time else 0
+
+            rsi_val = 50.0
+            strat = self.strategies.get(symbol, {}).get("scalp")
+            if strat and hasattr(strat, '_compute_rsi') and len(strat.klines) > 7:
+                closes = [k.close for k in strat.klines]
+                rsi_val = strat._compute_rsi(closes)
+
+            reason = None
+            if pnl_pct >= 0.5:
+                reason = f"TP scalp {pnl_pct:.2f}%"
+            elif rsi_val > 70:
+                reason = f"RSI overbought {rsi_val:.1f}"
+            elif age_m > 10:
+                reason = f"Time exit {age_m:.0f}m"
+
+            if reason:
+                logger.info(f"{reason} for {pos.symbol} {pos.side} @ {current_price}")
+                self.signal_manager.close_position(pos, reason)
+                add_log("INFO", f"{reason}: {pos.symbol} {pos.side} @ {current_price}")
+                continue
+
             result = self.risk.check_sl_tp(pos, current_price)
             if result:
                 logger.info(f"{result} for {pos.symbol} {pos.side} @ {current_price}")
