@@ -72,21 +72,16 @@ class TradingEngine:
                     klines = self.client.get_klines(toko_sym, interval=interval, limit=100)
                     if len(klines) < 14:
                         continue
-                    closes = [k.close for k in klines]
-                    deltas = np.diff(closes[-8:])
-                    gains = np.where(deltas > 0, deltas, 0)
-                    losses = np.where(deltas < 0, -deltas, 0)
-                    avg_gain = float(np.mean(gains))
-                    avg_loss = float(np.mean(losses))
-                    rsi = 100.0 - (100.0 / (1.0 + avg_gain / avg_loss)) if avg_loss > 0 else 100.0
                     recent_vol = float(np.mean([k.volume for k in klines[-3:]]))
                     avg_vol = float(np.mean([k.volume for k in klines]))
                     vol_surge = recent_vol / avg_vol if avg_vol > 0 else 0
-                    if vol_surge > 1.2 and rsi < 65:
+                    logger.info(f"[Screen] {raw} 24h={c['change_pct']:+.2f}% vol_surge={vol_surge:.1f}x")
+                    if vol_surge > 1.2:
                         selected.append(toko_sym)
                 except Exception:
                     continue
 
+            logger.info(f"[Screen] Selected {len(selected)} symbols: {[s.replace('_IDR','IDR') for s in selected]}")
             return selected
         except Exception as e:
             logger.warning(f"Auto-screen failed: {e}")
