@@ -399,46 +399,35 @@ async def api_screen(limit: int = 10, sort: str = "gainers"):
         return 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
 
     results = []
-    interval = "5m"
+    interval = "1m"
     for c in coins:
         try:
             klines = client.get_klines(c["toko_symbol"], interval=interval, limit=100)
-            if len(klines) < 20:
+            if len(klines) < 14:
                 continue
             closes = [k.close for k in klines]
-            rsi = round(compute_rsi(closes), 1)
-            fast_ma = round(float(np.mean(closes[-5:])), 2)
-            slow_ma = round(float(np.mean(closes[-10:])), 2)
-            ma_bullish = fast_ma > slow_ma
+            rsi = round(compute_rsi(closes, period=7), 1)
             current_price = closes[-1]
-            price_above_ma5 = current_price > fast_ma
-            recent_vol = float(np.mean([k.volume for k in klines[-5:]]))
+            recent_vol = float(np.mean([k.volume for k in klines[-3:]]))
             avg_vol = float(np.mean([k.volume for k in klines]))
             vol_surge = round(recent_vol / avg_vol, 1) if avg_vol > 0 else 0
-            momentum = round((current_price / closes[-10] - 1) * 100, 2) if len(closes) >= 10 else 0
+            price_chg_1m = round((current_price / closes[-2] - 1) * 100, 2) if len(closes) >= 2 else 0
             signals = []
             if rsi < 30:
                 signals.append("Oversold")
             elif rsi > 70:
                 signals.append("Overbought")
-            if not ma_bullish:
-                signals.append("Bearish")
             if vol_surge > 1.5:
-                signals.append("Vol surge")
-            if momentum > 1:
-                signals.append("Momentum up")
+                signals.append("Vol spike")
+            if abs(price_chg_1m) > 0.5:
+                signals.append("Move " + ("▲" if price_chg_1m > 0 else "▼"))
             results.append({
                 "symbol": c["symbol"],
                 "price": round(current_price, 2),
                 "change_pct": round(c["change_pct"], 2),
                 "rsi": rsi,
-                "ma_fast": fast_ma,
-                "ma_slow": slow_ma,
-                "ma_bullish": ma_bullish,
-                "price_above_ma5": price_above_ma5,
-                "volume": round(c["volume"], 2),
                 "vol_surge": vol_surge,
-                "momentum": momentum,
+                "price_chg_1m": price_chg_1m,
                 "interval": interval,
                 "signals": signals,
             })

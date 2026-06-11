@@ -38,13 +38,11 @@
                 <thead>
                     <tr>
                         <th>Symbol</th>
-                        <th>Price (5m)</th>
+                        <th>Price (1m)</th>
                         <th>24h Chg</th>
-                        <th>RSI (14)</th>
-                        <th>MA5</th>
-                        <th>MA10</th>
-                        <th>Momentum</th>
+                        <th>RSI (7)</th>
                         <th>Vol Surge</th>
+                        <th>1m Chg</th>
                         <th>Signals</th>
                     </tr>
                 </thead>
@@ -112,12 +110,10 @@ async function loadScreen() {
             const chgCls = c.change_pct >= 0 ? 'text-success' : 'text-danger';
             const chgArrow = c.change_pct >= 0 ? '▲' : '▼';
             const rsiCls = c.rsi < 30 ? 'text-success' : c.rsi > 70 ? 'text-danger' : '';
-            const maCls = c.ma_bullish ? 'text-success' : 'text-danger';
             const volCls = c.vol_surge > 1.5 ? 'text-warning' : '';
-            const momCls = c.momentum > 0 ? 'text-success' : 'text-danger';
             const badges = c.signals.map(s => {
-                const cls = s.includes('Oversold') || s.includes('up') || s.includes('surge') ? 'bg-success' :
-                            s.includes('Overbought') || s.includes('Bearish') ? 'bg-danger' : 'bg-warning';
+                const cls = s.includes('Oversold') || s.includes('spike') || s.includes('▲') ? 'bg-success' :
+                            s.includes('Overbought') || s.includes('▼') ? 'bg-danger' : 'bg-warning';
                 return `<span class="badge ${cls} me-1">${s}</span>`;
             }).join('');
             return `<tr>
@@ -125,10 +121,8 @@ async function loadScreen() {
                 <td>${nf(c.price)}</td>
                 <td class="${chgCls} fw-bold">${chgArrow} ${nf(c.change_pct)}%</td>
                 <td class="${rsiCls} fw-bold">${nf(c.rsi)}</td>
-                <td>${nf(c.ma_fast)}</td>
-                <td>${nf(c.ma_slow)}</td>
-                <td class="${momCls}">${c.momentum > 0 ? '▲' : '▼'} ${nf(c.momentum)}%</td>
                 <td class="${volCls}">${nf(c.vol_surge)}x</td>
+                <td class="${c.price_chg_1m >= 0 ? 'text-success' : 'text-danger'}">${c.price_chg_1m >= 0 ? '▲' : '▼'} ${nf(c.price_chg_1m)}%</td>
                 <td>${badges}</td>
             </tr>`;
         }).join('');

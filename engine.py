@@ -69,24 +69,31 @@ class TradingEngine:
             top10 = coins[:10]
 
             import numpy as np
-            bullish = []
-            interval = "5m"
+            selected = []
+            interval = "1m"
             for c in top10:
                 raw = c["symbol"]
                 toko_sym = raw[:-3] + "_" + raw[-3:]
                 try:
-                    klines = self.client.get_klines(toko_sym, interval=interval, limit=50)
-                    if len(klines) < 10:
+                    klines = self.client.get_klines(toko_sym, interval=interval, limit=100)
+                    if len(klines) < 14:
                         continue
                     closes = [k.close for k in klines]
-                    fast = float(np.mean(closes[-5:]))
-                    slow = float(np.mean(closes[-10:]))
-                    if fast > slow:
-                        bullish.append(toko_sym)
+                    deltas = np.diff(closes[-8:])
+                    gains = np.where(deltas > 0, deltas, 0)
+                    losses = np.where(deltas < 0, -deltas, 0)
+                    avg_gain = float(np.mean(gains))
+                    avg_loss = float(np.mean(losses))
+                    rsi = 100.0 - (100.0 / (1.0 + avg_gain / avg_loss)) if avg_loss > 0 else 100.0
+                    recent_vol = float(np.mean([k.volume for k in klines[-3:]]))
+                    avg_vol = float(np.mean([k.volume for k in klines]))
+                    vol_surge = recent_vol / avg_vol if avg_vol > 0 else 0
+                    if vol_surge > 1.2 and rsi < 65:
+                        selected.append(toko_sym)
                 except Exception:
                     continue
 
-            return bullish
+            return selected
         except Exception as e:
             logger.warning(f"Auto-screen failed: {e}")
             return []
