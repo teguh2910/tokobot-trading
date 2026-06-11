@@ -1,5 +1,4 @@
 let balanceChart, equityChart;
-const nf = (v, d=2) => Number(v || 0).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
 
 async function loadCharts() {
     try {
